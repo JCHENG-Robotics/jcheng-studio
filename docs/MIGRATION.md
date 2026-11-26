@@ -28,7 +28,7 @@ uncommitted changes and evidence remain addressable.
 | React/TypeScript console | `frontend/` | Eight pages, typed API client, Playwright specs |
 | Runtime configs | `configs/` | Joint mapping, pose/task takeover contract, visual model |
 | Hand-eye calibration | `configs/calibration/` | 2026-11-18 table-down TSAI result, used by `task.hand_eye` |
-| Backend tests | `backend/tests/` | 154 passed in this repository |
+| Backend tests | `backend/tests/` | 164 passed in this repository (includes the /v1 client tests) |
 | Console runners and reference tools | `tools/` and `tools/studio/` | HTTP clients of the local backend; operator-run only. `tools/verify_tf_snapshot.py` composes a captured `/tf` snapshot; `tools/phase2/motion_profile.py` is the pure-Python S-curve reference used by the profile tests. |
 | Design records | `docs/legacy/` | G1–G8, E7 and the baseline Studio README |
 | Product requirements | `docs/PRD.md` | Original PRD v1.0 |
@@ -73,29 +73,33 @@ uncommitted changes and evidence remain addressable.
 | Check | Result | Level |
 |---|---|---|
 | `python3 -m pytest -q tests` (manifest, document set, static no-hardware scan) | pass | L0 |
-| `backend/.venv/bin/python -m pytest backend/tests` | 154 passed | L1 |
+| `backend/.venv/bin/python -m pytest backend/tests` | 164 passed | L1 |
 | `npm run build` in `frontend/` | pass | L0 |
 | `bash scripts/check_repo_gate.sh` | pass | L0 |
 | Mock HTTP API paths (preview, execute, peripherals, task plan) | covered by the backend suite | L2 (mock) |
+| Read-only `/v1` REST client (health, contract, state, safety) | 10 mock-gateway tests; Bearer, mismatch and unreachable paths | L2 (mock) |
 | Playwright browser E2E | not run in this port | Unverified |
 | Legacy gateway integration | not exercised here | Unverified |
-| `jcheng-system` `/v1` gateway client | not implemented | Not started (M1) |
+| `/v1` WebSocket subscription | not implemented | Not started (M1b) |
 | Hardware motion | no session authorized | Unverified |
 
-Evidence: [`evidence/20261126_console_port/`](../evidence/20261126_console_port/README.md).
+Evidence: [`evidence/20261126_console_port/`](../evidence/20261126_console_port/README.md)
+and [`evidence/20261126_gateway_v1/`](../evidence/20261126_gateway_v1/README.md).
 
 ## 6. Follow-ups
 
-1. **M1 — `/v1` gateway client.** Implement `GET /v1/health`, `/v1/contract`,
-   `/v1/state`, `/v1/safety` and one WebSocket subscription against
-   `jcheng-interfaces`; prove contract-mismatch and read-only paths against a
-   mock gateway. Retire the legacy adapter from the default path.
+1. **M1a — read-only `/v1` REST client (complete 2026-11-26).** Implemented
+   `GET /v1/health`, `/v1/contract`, `/v1/state`, `/v1/safety` with Bearer auth
+   and contract-hash pinning; proven against a mock gateway. See
+   [`GATEWAY_V1.md`](GATEWAY_V1.md). **M1b — WebSocket subscription** remains.
 2. **M2 — operator sessions.** Add the append-only session store and
    authorization gate from `docs/SESSIONS.md`; the ported SQLite event store is
    not that store.
-3. **Gateway disposition.** Decide whether the frozen `ros2_gateway` is
-   superseded by `jcheng-system`'s `/v1` gateway or ported as a system
-   capability. This repository does not receive DDS code.
+3. **Gateway disposition — decided 2026-11-26.** `jcheng-system`'s `/v1`
+   gateway is the target; the frozen `ros2_gateway` is not ported into this
+   repository. The legacy adapter/runners remain transitional, disabled by
+   default and not admitted. Task/takeover endpoints the console still needs
+   must be added to `jcheng-interfaces` and `jcheng-system` first.
 4. **License review.** Record the ported-code authorship and third-party
    inventory in `LICENSE-REVIEW.md`; add `THIRD_PARTY_NOTICES.md` only if the
    review requires it.

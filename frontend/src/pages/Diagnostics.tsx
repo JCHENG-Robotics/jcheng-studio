@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
-import type { ProbeResult } from "../api/types";
+import type { GatewayV1Status, ProbeResult } from "../api/types";
 import {
   Button,
   Card,
@@ -39,6 +39,27 @@ export function DiagnosticsPage() {
   const [faultJoint, setFaultJoint] = useState("joint1");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [gatewayV1, setGatewayV1] = useState<GatewayV1Status | null>(null);
+  const [gatewayV1Error, setGatewayV1Error] = useState<string | null>(null);
+  const [gatewayV1Busy, setGatewayV1Busy] = useState(false);
+
+  const loadGatewayV1 = async () => {
+    setGatewayV1Busy(true);
+    setGatewayV1Error(null);
+    try {
+      setGatewayV1(await api.gatewayV1Status());
+    } catch (caught) {
+      setGatewayV1Error(errorText(caught));
+    } finally {
+      setGatewayV1Busy(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadGatewayV1();
+    // Read once on mount; the operator can refresh explicitly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!robot || !diagnostics) {
     return <EmptyState title="正在读取诊断信息…">需要后端 /api/diagnostics。</EmptyState>;
@@ -131,6 +152,113 @@ export function DiagnosticsPage() {
           </span>
         </div>
       )}
+
+      <Card
+        title="Gateway v1 · 只读诊断"
+        subtitle="jcheng-system /v1；health / contract / state / safety"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => void loadGatewayV1()}
+            disabled={gatewayV1Busy}
+          >
+            {gatewayV1Busy ? "读取中…" : "刷新"}
+          </Button>
+        }
+      >
+        {gatewayV1Error && <p className="error-text">{gatewayV1Error}</p>}
+        {!gatewayV1 ? (
+          <EmptyState title="正在读取 /v1 网关…">
+            仅 GET；不持有租约，不发送运动。
+          </EmptyState>
+        ) : !gatewayV1.configured ? (
+          <EmptyState title="未配置 /v1 网关">
+            设置 <code>ARMPI_GATEWAY_V1_URL</code> 与{" "}
+            <code>ARMPI_GATEWAY_V1_TOKEN</code> 后重启后端。
+          </EmptyState>
+        ) : (
+          <>
+            <div className="kv-list">
+              <KeyValue label="连接">
+                <StatusChip
+                  tone={
+                    gatewayV1.reachable
+                      ? gatewayV1.ready
+                        ? "ok"
+                        : "warning"
+                      : "fault"
+                  }
+                  label={
+                    gatewayV1.reachable
+                      ? gatewayV1.ready
+                        ? "只读就绪"
+                        : "可读 · 未就绪"
+                      : "不可达"
+                  }
+                />
+              </KeyValue>
+              <KeyValue label="健康">{gatewayV1.health_status ?? "—"}</KeyValue>
+              <KeyValue label="契约哈希">
+                <span className="mono" title={gatewayV1.contract_hash ?? undefined}>
+                  {gatewayV1.contract_hash
+                    ? `${gatewayV1.contract_hash.slice(0, 18)}…`
+                    : "—"}
+                </span>
+              </KeyValue>
+              <KeyValue label="契约匹配">
+                <StatusChip
+                  tone={gatewayV1.contract_match ? "ok" : "fault"}
+                  label={
+                    gatewayV1.contract_match === null
+                      ? "未校验"
+                      : gatewayV1.contract_match
+                        ? "匹配"
+                        : "不匹配"
+                  }
+                />
+              </KeyValue>
+              <KeyValue label="状态">
+                {gatewayV1.state_fresh === null
+                  ? "—"
+                  : `${gatewayV1.state_fresh ? "fresh" : "stale"} · seq ${
+                      gatewayV1.state_seq ?? "—"
+                    } · ${gatewayV1.joint_count ?? "—"} 关节`}
+              </KeyValue>
+              <KeyValue label="真值">{gatewayV1.state_truth ?? "—"}</KeyValue>
+              <KeyValue label="电池">
+                {gatewayV1.battery_voltage === null
+                  ? "—"
+                  : `${gatewayV1.battery_voltage.toFixed(2)} V`}
+              </KeyValue>
+              <KeyValue label="安全状态">{gatewayV1.safety_state ?? "—"}</KeyValue>
+              <KeyValue label="停止锁存">
+                {gatewayV1.stop_latched === null
+                  ? "—"
+                  : gatewayV1.stop_latched
+                    ? "已锁存"
+                    : "未锁存"}
+              </KeyValue>
+              <KeyValue label="系统版本">{gatewayV1.system_version ?? "—"}</KeyValue>
+              <KeyValue label="延迟">
+                {gatewayV1.latency_ms === null ? "—" : `${gatewayV1.latency_ms} ms`}
+              </KeyValue>
+            </div>
+            {gatewayV1.errors.length > 0 && (
+              <div className="fault-list">
+                {gatewayV1.errors.map((issue, index) => (
+                  <div className="fault-item" key={`${issue.code}-${index}`}>
+                    <StatusChip tone="warning" label={issue.code} />
+                    <span>{issue.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="footnote">
+              只读：不发送 POST，不持有租约，不发布运动；Token 仅在后端进程内使用。
+            </p>
+          </>
+        )}
+      </Card>
 
       <div className="grid grid-2">
         <Card title="连接 / ROS 图" subtitle="期望链路 vs 实际证据">

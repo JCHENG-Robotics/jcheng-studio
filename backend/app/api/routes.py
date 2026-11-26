@@ -167,6 +167,12 @@ def diagnostics(request: Request) -> dict[str, Any]:
     return _service(request).diagnostics()
 
 
+@router.get("/gateway/v1/status")
+def gateway_v1_status(request: Request) -> dict[str, Any]:
+    """Read-only health/contract/state/safety probe; no lease, no motion."""
+    return _service(request).gateway_v1_status()
+
+
 @router.post("/diagnostics/probe")
 def probe(request: Request) -> dict[str, Any]:
     return _service(request).probe()

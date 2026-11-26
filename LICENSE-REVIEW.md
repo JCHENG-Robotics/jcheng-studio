@@ -10,7 +10,7 @@
 | Item | Fact |
 |---|---|
 | `LICENSE` file | none |
-| Code in v0.2.0 | ported backend, UI, configs, tools, tests and a shell gate |
+| Code in v0.3.0 | ported backend, UI, configs, tools, tests, the read-only `/v1` client and a shell gate |
 | Runtime dependencies | FastAPI, uvicorn, pydantic, PyYAML, numpy; React, React Router, Zod, Zustand, Vite |
 | Test dependencies | `pytest`, `httpx`, `playwright` |
 | Existing Studio code | ported from the frozen `jcheng-manipulation` baseline (MIT) at `a08b8b6`; port record in [`docs/MIGRATION.md`](docs/MIGRATION.md) |

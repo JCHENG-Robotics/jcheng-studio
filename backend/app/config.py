@@ -53,6 +53,11 @@ class Settings:
     gateway_token: str | None = None
     camera_gateway_url: str | None = None
     camera_gateway_token: str | None = None
+    # Ecosystem gateway (jcheng-system /v1): read-only HTTP, Bearer auth.
+    gateway_v1_url: str | None = None
+    gateway_v1_token: str | None = None
+    gateway_v1_contract_hash: str | None = None
+    gateway_v1_timeout_s: float = 2.0
     api_token: str | None = None
     urdf_path: Path = DEFAULT_URDF
     visual_model_path: Path = DEFAULT_VISUAL_MODEL
@@ -90,6 +95,23 @@ class Settings:
         camera_gateway_token = (
             os.getenv("ARMPI_CAMERA_GATEWAY_TOKEN") or gateway_token
         ) if camera_gateway_url else None
+        # Ecosystem gateway (/v1). Separate from the legacy gateway above:
+        # the contract, auth header and paths are different.
+        gateway_v1_url = os.getenv("ARMPI_GATEWAY_V1_URL") or None
+        gateway_v1_token = os.getenv("ARMPI_GATEWAY_V1_TOKEN") or None
+        gateway_v1_contract_hash = (
+            os.getenv("ARMPI_GATEWAY_V1_CONTRACT_HASH") or ""
+        ).strip() or None
+        try:
+            gateway_v1_timeout_s = float(
+                os.getenv("ARMPI_GATEWAY_V1_TIMEOUT_S", "2.0")
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "ARMPI_GATEWAY_V1_TIMEOUT_S must be a number"
+            ) from exc
+        if gateway_v1_timeout_s <= 0:
+            raise ValueError("ARMPI_GATEWAY_V1_TIMEOUT_S must be positive")
         ack = (os.getenv("ARMPI_SUPERVISED_MOTION_ACK") or "").strip()
 
         raw_scope = (os.getenv("ARMPI_MOTION_SCOPE", "step") or "step").strip().lower()
@@ -159,6 +181,10 @@ class Settings:
             gateway_token=gateway_token,
             camera_gateway_url=camera_gateway_url,
             camera_gateway_token=camera_gateway_token,
+            gateway_v1_url=gateway_v1_url,
+            gateway_v1_token=gateway_v1_token,
+            gateway_v1_contract_hash=gateway_v1_contract_hash,
+            gateway_v1_timeout_s=gateway_v1_timeout_s,
             api_token=api_token,
             urdf_path=Path(os.getenv("ARMPI_URDF_PATH", str(DEFAULT_URDF))),
             visual_model_path=Path(

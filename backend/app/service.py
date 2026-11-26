@@ -17,6 +17,7 @@ from typing import Any, Callable
 from .adapters.base import RobotAdapter
 from .application.diagnostics_ops import DiagnosticsOperations
 from .application.experiment_ops import ExperimentOperations
+from .application.gateway_ops import GatewayV1Operations
 from .application.motion_ops import MotionOperations
 # Re-exported for the existing task tests; the implementation now lives in
 # application/task_ops.py.
@@ -84,6 +85,7 @@ class RobotService(
     MotionOperations,
     VisualOperations,
     DiagnosticsOperations,
+    GatewayV1Operations,
 ):
     def __init__(
         self,

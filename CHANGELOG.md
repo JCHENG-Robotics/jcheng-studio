@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-26
+
+### Added
+
+- Read-only `/v1` gateway client (`backend/app/adapters/gateway_v1.py`):
+  `GET /v1/health`, `/v1/contract`, `/v1/state` and `/v1/safety` over HTTP,
+  Bearer authentication, contract-hash pinning and fail-closed diagnostics.
+  It has no POST, lease, motion, arm, disarm or stop method.
+- `GET /api/gateway/v1/status` and a "Gateway v1 · 只读诊断" card on the
+  Diagnostics page.
+- Nine mock-gateway tests covering unauthenticated health, Bearer enforcement,
+  contract mismatch, missing token, unreachable gateway, the absence of
+  mutation methods, the status route and hash/manifest agreement.
+- `docs/GATEWAY_V1.md` and `evidence/20261126_gateway_v1/`.
+
+### Changed
+
+- Version 0.3.0. `capability.yaml` now declares `safety.class: observer`
+  (read-only HTTP) with an empty scope list and `hardware_access: none`.
+- Backend suite: 164 passed. The ported legacy adapter and runners remain
+  transitional and disabled by default.
+
+### Not included
+
+- The `/v1` WebSocket subscription (M1b).
+- Any `/v1` lease or motion intent; the console remains read-only.
+
 ## [0.2.0] — 2026-11-26
 
 ### Added

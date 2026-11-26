@@ -2,12 +2,12 @@
 
 [简体中文](README.zh-CN.md) | **English**
 
-> Status: **Experimental** as of 2026-11-26. Version 0.2.0.
+> Status: **Experimental** as of 2026-11-26. Version 0.3.0.
 > The frozen ArmPi Debug Studio console has been ported from the
-> `jcheng-manipulation` baseline. The backend and UI run offline and in mock
-> mode; the robot-side gateway remains outside this repository and the
-> `/v1` gateway client is still the M1 milestone. No hardware session was run
-> in this repository.
+> `jcheng-manipulation` baseline, and the read-only `/v1` REST client
+> (health, contract, state, safety) is implemented and verified against a mock
+> gateway. The WebSocket subscription and the robot-side gateway remain
+> outside this milestone, and no hardware session was run in this repository.
 > English canonical; see [README.zh-CN.md](README.zh-CN.md) for the Chinese translation.
 
 `jcheng-studio` is the L4 operator console of the JCHENG ecosystem — the
@@ -25,7 +25,7 @@ and never executes motion. Every action it proposes is validated and executed
 | Layer | L4 operator application (operator console), per the repository taxonomy |
 | Runs on | Operator laptop: browser UI and a local backend; never on the robot |
 | Inputs | Gateway HTTP/WS responses (`/v1/state`, `/v1/safety`, `/v1/contract`, events) and operator input |
-| Outputs | Operator session records and exported evidence, stored outside this repository; motion **intent** forwarded to the system gateway |
+| Outputs | Read-only `/v1` diagnostics now; operator session records and exported evidence outside this repository; motion **intent** forwarded to the system gateway from M2 |
 | Motion authority | None. The system layer owns the control lease, deadman, joint/base limits, stop latch and `ExecuteMotion` |
 | Hardware access | `none` |
 | Owned devices | none |
@@ -47,6 +47,7 @@ repository's boundary. The complete source and exclusion record is in
 | Asset | Location | State |
 |---|---|---|
 | FastAPI backend, mock adapter and legacy HTTP adapter | `backend/` | Ported; offline tests pass |
+| Read-only `/v1` REST client and diagnostics | `backend/app/adapters/gateway_v1.py`; Diagnostics page | M1a complete; mock-gateway verified |
 | React/TypeScript console with eight pages | `frontend/` | Ported; production build passes |
 | Joint mapping, pose/task contract and visual model | `configs/` | Ported |
 | Hand-eye calibration used by the task contract | `configs/calibration/` | Ported (2026-11-18 TSAI result) |
@@ -57,7 +58,8 @@ repository's boundary. The complete source and exclusion record is in
 Not ported: the robot-side `ros2_gateway/` (ROS 2/DDS, L2), the runtime
 `data/studio.db`, the hardware evidence bundles and the vendor-derived URDF.
 The legacy HTTP adapter targets the frozen gateway (`/health`,
-`X-Armpi-Token`); it is not the ecosystem `/v1` contract.
+`X-Armpi-Token`); it is not the ecosystem `/v1` contract. The `/v1` WebSocket
+subscription is M1b and is not implemented yet.
 
 ## Repository layout
 
@@ -65,7 +67,7 @@ The legacy HTTP adapter targets the frozen gateway (`/health`,
 jcheng-studio/
 ├── backend/
 │   ├── app/                     # FastAPI app, adapters, safety core, domain, persistence
-│   └── tests/                   # 154 passed; mock and legacy-adapter paths
+│   └── tests/                   # 164 passed; mock, legacy and /v1 client paths
 ├── packages/jcheng_core/        # shared pure-Python stats and point-cloud primitives
 ├── configs/                     # joint mapping, takeover contract, visual model, calibration
 ├── frontend/
@@ -79,13 +81,15 @@ jcheng-studio/
 │   ├── INTEGRATION.md           # gateway contract, admission and failure semantics
 │   ├── SESSIONS.md              # operator sessions, authorization and records
 │   ├── MIGRATION.md             # source, exclusions and boundary adaptations
+│   ├── GATEWAY_V1.md            # read-only /v1 client (M1a)
 │   ├── PRD.md                   # product requirements
 │   └── legacy/                  # G1–G8.1 and E7 records
-├── capability.yaml              # admission manifest (offline, hardware_access: none)
+├── capability.yaml              # admission manifest (observer, hardware_access: none)
 ├── tests/                       # manifest, document-set and no-hardware checks
 ├── scripts/check_repo_gate.sh   # repository gate (local and CI)
 ├── evidence/20261126_scaffold/  # M0 evidence record
 ├── evidence/20261126_console_port/  # v0.2.0 port evidence
+├── evidence/20261126_gateway_v1/    # M1a read-only client evidence
 ├── VERSION
 ├── README.md / README.zh-CN.md
 ├── ROADMAP.md / CHANGELOG.md / ACCEPTANCE.md
@@ -102,7 +106,10 @@ jcheng-studio/
 - No ROS installation at any stage: the Studio is an HTTP/WS client and never
   joins a DDS graph.
 - A `jcheng-system` gateway reachable on the operator network for any runtime
-  work; the gate itself needs no robot and no network listener.
+  work; the gate itself needs no robot and no network listener. The read-only
+  `/v1` diagnostics use `ARMPI_GATEWAY_V1_URL` and `ARMPI_GATEWAY_V1_TOKEN`
+  (see [GATEWAY_V1.md](docs/GATEWAY_V1.md)); the legacy adapter uses the
+  separate `ARMPI_GATEWAY_URL` / `ARMPI_GATEWAY_TOKEN`.
 - Operator-side storage for session records and exports, outside this
   repository (`~/.local/state/armpi-studio/`). Gateway credentials live in
   `~/.config/armpi-studio/studio.env` (0600) and never enter git.
@@ -141,14 +148,15 @@ domain.
 
 | Claim | Status | Evidence |
 |---|---|---|
-| Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_console_port/`](evidence/20261126_console_port/README.md) |
-| Backend suite: 154 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_console_port/backend-tests.txt`](evidence/20261126_console_port/backend-tests.txt) |
-| Frontend production build passes | Verified (L0, 2026-11-26) | [`evidence/20261126_console_port/frontend-build.txt`](evidence/20261126_console_port/frontend-build.txt) |
-| No device path, DDS/ROS interface, vendor topic or motion call appears in scanned code, config or scripts | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py`; [gate record](evidence/20261126_console_port/gate.txt) |
+| Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_gateway_v1/`](evidence/20261126_gateway_v1/README.md) |
+| Backend suite: 164 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_gateway_v1/backend-tests.txt`](evidence/20261126_gateway_v1/backend-tests.txt) |
+| Read-only `/v1` REST client (health, contract, state, safety) | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1.py`](backend/tests/test_gateway_v1.py); [evidence](evidence/20261126_gateway_v1/README.md) |
+| Frontend production build passes | Verified (L0, 2026-11-26) | [`evidence/20261126_gateway_v1/frontend-build.txt`](evidence/20261126_gateway_v1/frontend-build.txt) |
+| No device path, DDS/ROS interface, vendor topic or motion call appears in scanned code, config or scripts | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py`; [gate record](evidence/20261126_gateway_v1/gate.txt) |
 | Mock HTTP API paths (preview, execute, peripherals, task plan) | Verified (L2, mock only, 2026-11-26) | `backend/tests/` |
 | Playwright browser E2E | Unverified | Not run in this port |
 | Legacy gateway integration (read-only or motion) | Unverified | The legacy adapter is not exercised here |
-| `/v1` gateway client, operator sessions and the M2 session store | Not started | M1/M2 roadmap |
+| `/v1` WebSocket subscription, operator sessions and the M2 session store | Not started | M1b/M2 roadmap |
 | Hardware motion | Unverified | No session authorized; no hardware evidence in this repository |
 
 Full report: [ACCEPTANCE.md](ACCEPTANCE.md).

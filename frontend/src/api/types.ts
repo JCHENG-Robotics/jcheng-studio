@@ -176,6 +176,36 @@ export interface Diagnostics {
   storage_error: string | null;
 }
 
+export interface GatewayV1Issue {
+  code: string;
+  message: string;
+  status: number | null;
+  endpoint: string | null;
+}
+
+export interface GatewayV1Status {
+  configured: boolean;
+  reachable: boolean;
+  authenticated: boolean;
+  read_only: boolean;
+  ready: boolean;
+  health_status: string | null;
+  contract_hash: string | null;
+  contract_match: boolean | null;
+  state_fresh: boolean | null;
+  state_truth: string | null;
+  state_seq: number | null;
+  joint_count: number | null;
+  battery_voltage: number | null;
+  safety_state: string | null;
+  stop_latched: boolean | null;
+  violation_codes: string[];
+  system_version: string | null;
+  profile_hash: string | null;
+  latency_ms: number | null;
+  errors: GatewayV1Issue[];
+}
+
 export interface EventRecord {
   seq: number;
   event_id: string;

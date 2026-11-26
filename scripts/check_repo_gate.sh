@@ -35,6 +35,7 @@ for f in \
   docs/SESSIONS.md \
   docs/MIGRATION.md \
   docs/PRD.md \
+  docs/GATEWAY_V1.md \
   docs/legacy/README.md \
   backend/pyproject.toml \
   backend/tests/fixtures/armpi_ultra_test.urdf \
@@ -47,6 +48,7 @@ for f in \
   scripts/check_repo_gate.sh \
   evidence/20261126_scaffold/README.md \
   evidence/20261126_console_port/README.md \
+  evidence/20261126_gateway_v1/README.md \
   .github/workflows/ci.yml
 do
   require_file "$f"
