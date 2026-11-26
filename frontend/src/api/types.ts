@@ -180,7 +180,8 @@ export interface GatewayV1Issue {
   code: string;
   message: string;
   status: number | null;
-  endpoint: string | null;
+  /** REST issues carry the endpoint; stream issues may omit it. */
+  endpoint?: string | null;
 }
 
 export interface GatewayV1Status {
