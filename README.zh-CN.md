@@ -1,6 +1,6 @@
 # jcheng-studio
 
-[English](README.md) | **简体中文**
+**简体中文** | [English](README.md)
 
 > 状态：**实验性**，2026-11-26。版本 0.7.0。
 > 已从 `jcheng-manipulation` 冻结基线迁入 ArmPi Debug Studio 控制台，并实现只读
