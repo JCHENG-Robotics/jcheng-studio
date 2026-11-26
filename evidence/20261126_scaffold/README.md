@@ -1,6 +1,6 @@
 # M0 evidence — repository scaffold
 
-> Status: **in progress** as of 2026-11-26.
+> Status: **complete** as of 2026-11-26.
 > Scope: the document set, admission manifest, repository gate and CI for
 > `jcheng-studio` v0.1.0. No backend, no UI, no gateway call, no operator
 > session and no hardware session.
@@ -9,8 +9,10 @@
 
 | Item | Value |
 |---|---|
-| Host | operator laptop, Linux x86_64, Python 3.12.3, pytest 7.4.4 |
-| Repository | `JCHENG-Robotics/jcheng-studio`, `main` |
+| Repository | `JCHENG-Robotics/jcheng-studio` (public, created 2026-11-26T01:28:57Z) |
+| Initial commit | `c041644` (`chore: initialize jcheng-studio repository`) |
+| Operator host | operator laptop, Linux x86_64, Python 3.12.3, pytest 7.4.4 |
+| CI host | `ubuntu-latest`, Python 3.12, pytest 8.3.4, PyYAML 6.0.2 |
 | Robot | not used |
 | Motion | none; no command was sent |
 | DDS | not joined |
@@ -19,15 +21,15 @@
 
 | Command | Result | Log |
 |---|---|---|
-| `python3 -m pytest -q tests` | pending | — |
-| `bash scripts/check_repo_gate.sh` | pending | — |
-| Manifest schema validation against `capability-manifest.v1.schema.json` | pending | — |
-| CI `studio-gate` | pending | — |
+| `python3 -m pytest -q tests` | pass, 13 tests | `gate.txt` |
+| `bash scripts/check_repo_gate.sh` | pass | `gate.txt` |
+| Manifest schema validation against `capability-manifest.v1.schema.json` | pass | `gate.txt` header; `tests/test_contract.py` |
+| CI `studio-gate` on `c041644` | pass ([run 45736077396](https://github.com/JCHENG-Robotics/jcheng-studio/actions/runs/45736077396)) | [`job studio-gate`](https://github.com/JCHENG-Robotics/jcheng-studio/actions/runs/45736077396/job/139629552368) |
 
 ## 3. Claims supported
 
-- The admission manifest parses, matches `VERSION` and declares
-  `hardware_access: none` with an empty runtime surface.
+- The admission manifest parses, matches `VERSION`, validates against the v1
+  schema and declares `hardware_access: none` with an empty runtime surface.
 - The static scan finds no hardware, DDS/ROS, vendor-topic or motion token in
   code, configuration or scripts.
 - No model weight, session database, operator env file or recording is tracked.
@@ -39,7 +41,7 @@
 
 - Gateway client, console UI and operator sessions (M1–M3).
 - Any hardware or motion behavior (M4).
-- CI success until the first run is recorded above.
+- Reviewer sign-off; the operator is the only account.
 
 ## 5. Related
 

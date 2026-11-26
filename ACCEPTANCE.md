@@ -5,6 +5,7 @@
 > Scope: repository scaffold, documentation set and admission manifest.
 > No backend, console UI or gateway call exists. No motion command is sent, no
 > device is opened and no DDS domain is joined.
+> CI `studio-gate` passed on the initial commit `c041644`.
 
 ## 1. Gates
 
@@ -12,7 +13,7 @@
 |---|---|---|---|---|
 | Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261126_scaffold/gate.txt` |
 | Unit tests | `python3 -m pytest -q tests` | L1 | pass (13 tests) | `tests/` |
-| CI | `.github/workflows/ci.yml` job `studio-gate` | L0/L1 | pass | `evidence/20261126_scaffold/README.md` |
+| CI | `.github/workflows/ci.yml` job `studio-gate` | L0/L1 | pass ([run 45736077396](https://github.com/JCHENG-Robotics/jcheng-studio/actions/runs/45736077396)) | `evidence/20261126_scaffold/README.md` |
 | Manifest schema | `jsonschema` against `capability-manifest.v1.schema.json` | L0 | pass | `evidence/20261126_scaffold/gate.txt` |
 | Mock integration | — | L2 | not applicable (no runtime) | — |
 | Mock end-to-end | — | L3 | not applicable (no runtime) | — |

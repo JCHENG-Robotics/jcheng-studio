@@ -83,7 +83,7 @@ DDS domain.
 
 | Claim | Status | Evidence |
 |---|---|---|
-| Repository gate and unit tests pass | Verified (L0/L1, 2026-11-26) | `evidence/20261126_scaffold/` |
+| Repository gate and unit tests pass | Verified (L0/L1, 2026-11-26) | `evidence/20261126_scaffold/`; [CI run](https://github.com/JCHENG-Robotics/jcheng-studio/actions/runs/45736077396) |
 | Manifest declares `hardware_access: none` and an empty runtime surface | Verified (L0, 2026-11-26) | `tests/test_contract.py` |
 | No hardware, DDS, vendor-topic or motion call exists in the tree | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py` |
 | Gateway client, console UI or operator session | Unverified | Not implemented (M1–M3) |
