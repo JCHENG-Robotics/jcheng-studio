@@ -20,6 +20,7 @@ from .application.experiment_ops import ExperimentOperations
 from .application.gateway_ops import GatewayV1Operations
 from .application.motion_ops import MotionOperations
 from .application.session_ops import SessionOperations
+from .application.teleop_ops import TeleopOperations
 # Re-exported for the existing task tests; the implementation now lives in
 # application/task_ops.py.
 from .application.task_ops import (
@@ -88,6 +89,7 @@ class RobotService(
     DiagnosticsOperations,
     SessionOperations,
     GatewayV1Operations,
+    TeleopOperations,
 ):
     def __init__(
         self,

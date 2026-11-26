@@ -26,9 +26,11 @@ import type {
   SessionRecord,
   SessionSummary,
   StopResult,
+  SystemStopResult,
   TargetPayload,
   TaskPlan,
   TaskVerify,
+  TeleopStatusProbe,
   TrajectoryList,
   TrajectoryRecord,
   TrajectoryRecompute,
@@ -397,6 +399,18 @@ export const api = {
         session_id: input.sessionId,
         lease_id: input.leaseId,
         command_id: input.commandId,
+      }),
+    });
+  },
+  async teleopStatus(): Promise<TeleopStatusProbe> {
+    return request<TeleopStatusProbe>("/api/teleop/status");
+  },
+  async systemStop(input: { operatorId: string; reason?: string }): Promise<SystemStopResult> {
+    return request<SystemStopResult>("/api/teleop/stop", {
+      method: "POST",
+      body: JSON.stringify({
+        operator_id: input.operatorId,
+        reason: input.reason ?? "operator stop from the teleop panel",
       }),
     });
   },

@@ -2,15 +2,17 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-> Status: **Experimental** as of 2026-11-26. Version 0.7.0.
+> Status: **Experimental** as of 2026-11-26. Version 0.8.0.
 > The frozen ArmPi Debug Studio console has been ported from the
 > `jcheng-manipulation` baseline. The read-only `/v1` REST client
 > (health, contract, state, safety) and `/v1/ws/state` subscription are
 > verified against mock gateways and a real `jcheng-system` read-only gateway.
 > The M2a operator-session store, M2b joint/gripper intent forwarding and M3
 > offline session replay are implemented; the operator supplies a system-issued
-> lease and the Studio never holds one. The robot-side gateway remains outside
-> this repository, and no
+> lease and the Studio never holds one. M5 adds the teleop panel: it polls the
+> read-only teleop status API and offers one opt-in system stop proxy
+> (`POST /v1/motion/stop`) with no lease and no motion execution. The
+> robot-side gateway remains outside this repository, and no
 > hardware session was run here.
 > English canonical; the Chinese README is a translation.
 

@@ -1136,3 +1136,34 @@ export interface CameraReferenceList {
   items: CameraReference[];
   schema_version: number;
 }
+
+/** M5: read-only teleop status proxy. A stale/missing payload is degraded. */
+export interface TeleopStatusProbe {
+  configured: boolean;
+  reachable: boolean;
+  valid: boolean;
+  stale: boolean;
+  degraded: boolean;
+  phase: string | null;
+  input_age_ms: number | null;
+  deadman: boolean | null;
+  mode: string | null;
+  profile_id: string | null;
+  profile_hash: string | null;
+  contract_hash: string | null;
+  lease_ref: string | null;
+  capture: Record<string, unknown>;
+  payload: Record<string, unknown>;
+  latency_ms: number | null;
+  errors: GatewayV1Issue[];
+}
+
+export interface SystemStopResult {
+  requested: boolean;
+  accepted: boolean;
+  latency_ms: number | null;
+  status_code: number | null;
+  result?: Record<string, unknown>;
+  error?: { code: string; message: string };
+  storage_error?: Record<string, unknown> | null;
+}

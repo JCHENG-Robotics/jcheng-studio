@@ -2,12 +2,14 @@
 
 **简体中文** | [English](README.md)
 
-> 状态：**实验性**，2026-11-26。版本 0.7.0。
+> 状态：**实验性**，2026-11-26。版本 0.8.0。
 > 已从 `jcheng-manipulation` 冻结基线迁入 ArmPi Debug Studio 控制台，并实现只读
 > `/v1` REST 客户端（health、contract、state、safety）与只读 `/v1/ws/state` 订阅；
 > 已用 mock 网关和真实的 `jcheng-system` 只读网关验证。M2a 操作会话存储、M2b
 > 关节/夹爪意图转发与 M3 离线会话回放已实现；lease 由操作员从系统层取得，
-> Studio 不申请、不持有。机器人侧网关仍不在本仓库，本仓库尚未执行任何实机会话。
+> Studio 不申请、不持有。M5 新增遥操作面板：轮询只读 teleop 状态 API，并提供
+> 一个需显式开启的系统停止代理（`POST /v1/motion/stop`），不持有 lease、不执行运动。
+> 机器人侧网关仍不在本仓库，本仓库尚未执行任何实机会话。
 > 英文为正式版本，见 [README.md](README.md)；本文为中文对照。
 
 `jcheng-studio` 是 JCHENG 生态的 L4 操作台，也是 ArmPi Debug Studio 在生态中的

@@ -98,17 +98,24 @@ exactly two endpoints:
 It is reachable only through `POST /api/session/intent/joint` or
 `/api/session/intent/gripper`, which require an M2a session in the
 `authorized` state. The **operator supplies a lease ID issued by the system
-layer**; the Studio never calls `/v1/leases` and has no lease or stop method.
-The command carries `source=studio:<session>`, the pinned contract, bus
-verification and a measured-state requirement. A validation refusal is
-recorded as `intent_rejected`; an UNKNOWN result is recorded as
-`intent_unknown` and degrades the session. No retry is attempted.
+layer**; the Studio never calls `/v1/leases`, and this read-only intent client
+has no lease or stop method. The command carries `source=studio:<session>`, the
+pinned contract, bus verification and a measured-state requirement. A
+validation refusal is recorded as `intent_rejected`; an UNKNOWN result is
+recorded as `intent_unknown` and degrades the session. No retry is attempted.
+
+The M5 teleop panel adds one **separate** write outside this client:
+`POST /api/teleop/stop` proxies `POST /v1/motion/stop` with the backend-held
+Bearer token. It is opt-in (`ARMPI_SYSTEM_STOP=1`), loopback-only, acquires no
+lease and executes no motion; it latches the system software stop. See
+[TELEOP_PANEL.md](TELEOP_PANEL.md).
 
 ## 7. Not in this slice
 
 - No lease acquisition, renewal, release or revoke.
-- No base pulse, trajectory execution or stop endpoint; only one joint step or
-  one gripper command.
+- No base pulse or trajectory execution; only one joint step or one gripper
+  command. The only stop is the separate M5 system stop proxy above, not an
+  intent-side stop endpoint.
 - No `lease`/`motion`/`event` envelope handling beyond validating the generic
   envelope shape; only `hello`/`state`/`safety` are surfaced.
 - No persistent stream recording; the probe is deliberately short.
