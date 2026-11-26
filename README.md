@@ -1,6 +1,6 @@
 # jcheng-studio
 
-[简体中文](README.zh-CN.md) | **English**
+**English** | [简体中文](README.zh-CN.md)
 
 > Status: **Experimental** as of 2026-11-26. Version 0.7.0.
 > The frozen ArmPi Debug Studio console has been ported from the
@@ -12,7 +12,7 @@
 > lease and the Studio never holds one. The robot-side gateway remains outside
 > this repository, and no
 > hardware session was run here.
-> English canonical; see [README.zh-CN.md](README.zh-CN.md) for the Chinese translation.
+> English canonical; the Chinese README is a translation.
 
 `jcheng-studio` is the L4 operator console of the JCHENG ecosystem — the
 ecosystem home of the ArmPi Debug Studio. It is the human-facing surface for
