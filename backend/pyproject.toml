@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "armpi-debug-studio-backend"
+version = "0.4.0"
+description = "ArmPi Debug Studio console backend (L4 operator console)"
+requires-python = ">=3.11,<3.13"
+# Exact pins: the backend is an application, not a reusable library. The
+# release gate and CI must resolve the same versions on every run.
+#
+# The shared pure-Python package `packages/jcheng_core` is installed separately
+# (editable) by the quick start and CI; it is not a PyPI dependency.
+dependencies = [
+  "fastapi==0.163.0",
+  "uvicorn[standard]==0.54.0",
+  "pydantic==2.14.3",
+  "PyYAML==6.0.3",
+  "numpy==1.26.4",
+  "websockets==17.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.2.0",
+  "httpx==0.28.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

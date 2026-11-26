@@ -2,29 +2,32 @@
 # jcheng-studio is an L4 operator application: the ArmPi Debug Studio console
 # and its backend (JCHENG-Robotics/.github docs/repo-taxonomy.md, layer L4).
 #
-# v0.1.0 is admission-only. It has no runtime process, joins no DDS domain,
-# publishes no topic, opens no device and consumes no contract at runtime yet.
-# The empty runtime surface is deliberate: a planned application must not claim
-# a transport it does not serve.
+# v0.4.0 ports the console and adds the read-only ``/v1`` REST and WebSocket
+# clients (health, contract, state, safety; hello/state/safety stream), but
+# still has no ROS runtime surface: no DDS domain, topic, service or device.
+# The ported legacy HTTP gateway adapter is not a ROS interface and is
+# disabled by default. The empty runtime surface is deliberate: the console
+# must not claim a transport it does not serve.
 #
 # The permanent division of authority is already fixed: the Studio talks to the
 # system gateways over HTTP/WS only, forwards operator *intent*, and never
 # holds a control lease itself. The system layer owns the lease, deadman,
-# limits, stop latch and the single motion entry point. M1 adds the gateway
-# client and this file gains no ROS runtime surface even then; only contract
-# and system_api ranges matter.
+# limits, stop latch and the single motion entry point. No ROS runtime surface
+# is gained by the /v1 client; only contract and system_api ranges matter.
 schema_version: 1
 name: jcheng-studio
-version: 0.1.0
+version: 0.4.0
 contract:
   interfaces: ">=0.1,<0.2"
   contract_hash: "sha256:0b8d72ced7f54d444d6851d8b99a51a78e2bed3f687324f51a15f76557f24b42"
   system_api: ">=0.1,<0.2"
 safety:
-  class: offline
+  # Read-only HTTP observer: it reads health/contract/state/safety and holds no
+  # motion scope. The system layer owns the lease and the only motion entry.
+  class: observer
   scopes: []
-  # Required by capability-manifest.v1.schema.json. It is vacuous in v0.1.0
-  # because no intent is produced; the Studio never becomes a lease holder.
+  # Required by capability-manifest.v1.schema.json. It is vacuous because the
+  # Studio never becomes a lease holder; the system layer owns every lease.
   requires_lease: true
   max_rate_hz: 1
   deadman_ms: 500

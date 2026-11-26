@@ -1,60 +1,87 @@
 # Acceptance report — jcheng-studio
 
-> Status: **pass** as of 2026-11-26 for v0.1.0.
+> Status: **pass** as of 2026-11-26 for v0.4.0 (console port + M1a read-only
+> `/v1` REST client + M1b read-only `/v1/ws/state` subscription).
 > Operator: JerichoCheng. Reviewer: pending.
-> Scope: repository scaffold, documentation set and admission manifest.
-> No backend, console UI or gateway call exists. No motion command is sent, no
-> device is opened and no DDS domain is joined.
-> CI `studio-gate` passed on the initial commit `c041644`.
+> Scope: the ported backend and UI, the read-only `/v1` REST and WebSocket
+> clients and diagnostics, the offline/mock test surface and the static
+> boundary. No hardware session was run, no device was opened and no DDS domain
+> was joined.
+> The report is additive: the v0.1.0 scaffold acceptance remains in
+> `evidence/20261126_scaffold/`.
 
 ## 1. Gates
 
 | Gate | Command | Level | Result | Evidence |
 |---|---|---|---|---|
-| Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261126_scaffold/gate.txt` |
-| Unit tests | `python3 -m pytest -q tests` | L1 | pass (13 tests) | `tests/` |
-| CI | `.github/workflows/ci.yml` job `studio-gate` | L0/L1 | pass ([run 45736077396](https://github.com/JCHENG-Robotics/jcheng-studio/actions/runs/45736077396)) | `evidence/20261126_scaffold/README.md` |
-| Manifest schema | `jsonschema` against `capability-manifest.v1.schema.json` | L0 | pass | `evidence/20261126_scaffold/gate.txt` |
-| Mock integration | — | L2 | not applicable (no runtime) | — |
-| Mock end-to-end | — | L3 | not applicable (no runtime) | — |
-| Replay | — | L4 | not applicable (no session store) | — |
-| Hardware | — | L5 | not applicable; no hardware session authorized | — |
+| Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261126_gateway_ws/gate.txt` |
+| Unit tests (manifest, document set, no-hardware scan) | `python3 -m pytest -q tests` | L1 | pass (13 tests) | `tests/` |
+| Backend suite | `backend/.venv/bin/python -m pytest tests` | L1 | pass (172 passed) | `evidence/20261126_gateway_ws/backend-tests.txt` |
+| Frontend production build | `npm run build` in `frontend/` | L0 | pass | `evidence/20261126_gateway_ws/frontend-build.txt` |
+| Mock HTTP API | covered by the backend suite | L2 | pass (mock only) | `backend/tests/` |
+| Mock `/v1` REST gateway | `backend/tests/test_gateway_v1.py` | L2 | pass (10 tests) | `evidence/20261126_gateway_v1/` |
+| Mock `/v1/ws/state` stream | `backend/tests/test_gateway_v1_stream.py` | L2 | pass (8 tests) | `evidence/20261126_gateway_ws/` |
+| Real `jcheng-system` read-only gateway WS | loopback integration probe | L2 | pass (hello → state → safety) | `evidence/20261126_gateway_ws/integration.txt` |
+| Playwright browser E2E | `npm run test:e2e` | L3 | not run in this port | — |
+| Legacy gateway integration | — | L2/L3 | not exercised | — |
+| Hardware | — | L5 | not applicable; no session authorized | — |
+| CI | `.github/workflows/ci.yml` jobs `studio-gate`, `console-tests`, `frontend-build` | L0/L1 | unverified until the first run | — |
 
 ## 2. Verified claims
 
 | Claim | Level | Evidence |
 |---|---|---|
 | The manifest parses, matches `VERSION`, validates against the v1 schema and pins the v0.1.0 contract hash | L0 | `capability.yaml`; `tests/test_contract.py` |
-| `hardware_access: none` and an empty runtime surface are declared | L0 | `capability.yaml`; `tests/test_contract.py` |
-| No device path, DDS/ROS interface, vendor topic, motion service or base-intent topic appears in code, config or scripts | L0 | `tests/test_no_hardware.py` |
+| `hardware_access: none`, `safety.class: observer` and an empty ROS runtime surface are declared | L0 | `capability.yaml`; `tests/test_contract.py` |
+| No device path, DDS/ROS interface, vendor topic, motion service or base-intent topic appears in scanned code, config or scripts | L0 | `tests/test_no_hardware.py` |
 | No model weight, session database, operator env file or oversized file is tracked | L0 | `scripts/check_repo_gate.sh` |
 | The required document set exists and relative links resolve | L0 | `scripts/check_repo_gate.sh` |
-| The same gate passes in CI on `main` | L0/L1 | `evidence/20261126_scaffold/README.md` |
+| The ported backend's mock, safety, pose and task paths pass | L1/L2 | 172 passed |
+| The ported frontend type-checks and builds | L0 | `tsc -b && vite build` |
+| The read-only `/v1` client implements health, contract, state and safety and has no mutation method | L1/L2 | `backend/app/adapters/gateway_v1.py`; `backend/tests/test_gateway_v1.py` |
+| A mock gateway proves unauthenticated health, Bearer enforcement, contract-mismatch rejection, missing-token and unreachable handling | L2 | `backend/tests/test_gateway_v1.py` |
+| Every recorded request in the read-only suite is a `GET` | L2 | `backend/tests/test_gateway_v1.py` |
+| The read-only `/v1/ws/state` client validates `jcheng-ws.v1.json` envelopes, requires hello first, has bounded reconnect and no mutation method | L1/L2 | `backend/app/adapters/gateway_v1_stream.py`; `backend/tests/test_gateway_v1_stream.py` |
+| The stream probe requires Bearer, rejects a contract mismatch and an invalid first envelope, and reports an unreachable gateway without fabricating state | L2 | `backend/tests/test_gateway_v1_stream.py` |
+| The studio client reads hello → state → safety from the real `jcheng-system` read-only gateway | L2 | `evidence/20261126_gateway_ws/integration.txt` |
+| The ported configs resolve without the baseline workspace | L0 | `configs/takeover.yaml`; `configs/calibration/` |
+| The vendor-derived URDF is not shipped; the visual tests use a project fixture | L0 | `backend/tests/fixtures/armpi_ultra_test.urdf`; `docs/MIGRATION.md` |
 
 ## 3. Not verified
 
 | Item | Reason | Risk |
 |---|---|---|
-| Gateway client and read-only diagnostics | Not implemented (M1) | No gateway contract is exercised |
 | Operator session store and authorization gate | Not implemented (M2) | No session can be opened, degraded or sealed |
-| Console UI and joint/gripper debug | Not implemented (M2) | No operator workflow exists |
-| Trajectory inspection and evidence export | Not implemented (M3) | No record can be replayed or exported |
-| Lease, deadman and fail-closed behavior | No runtime client | Cannot be tested before M2 |
+| Console `/v1` joint/gripper debug and intent forwarding | Read-only diagnostics only | No `/v1` motion intent path exists |
+| Trajectory inspection and evidence export | No M2 session record | No record can be replayed or exported |
+| Playwright browser E2E | Not run in this port | UI regressions are not yet caught in CI |
+| Legacy gateway integration | No gateway in this repository | The ported hardware path is unproven here |
+| Lease, deadman and fail-closed behavior on the real gateway | No `/v1` write path | The system layer's behavior is not exercised from the console |
 | Hardware behavior | No session, no runtime | Nothing to validate on the robot |
 
 ## 4. Limitations
 
-- The repository is a scaffold. It is not used by the running robot or by the
-  current Debug Studio, which remains in the frozen `jcheng-manipulation`
-  baseline.
-- No gateway client, session store, console UI or export exists.
+- The repository contains runtime console code, but no robot-side gateway.
+  The frozen `ros2_gateway` remains in `jcheng-manipulation` and is not part of
+  this repository.
+- The `/v1` REST and WebSocket clients are read-only. They never acquire a
+  lease, renew one, send a motion intent or call a stop endpoint. The stream is
+  a short probe plus a bounded-reconnect reader; it does not persist a live
+  session.
+- The legacy HTTP adapter (`/health`, `X-Armpi-Token`) is retained only to run
+  the ported console against an already-deployed frozen gateway. It is not a
+  compatibility shim for the `/v1` contract and is not admitted.
+- The production URDF is vendor-derived and is not shipped. The visual
+  workbench needs `ARMPI_URDF_PATH`; tests use a project-authored fixture.
+- The ported SQLite event store is a legacy console log, not the M2 session
+  store. Session databases remain outside git.
 - No motion authority and no e-stop. The platform has no e-stop, brake, encoder
   or self-collision model; a software stop is not an e-stop.
 - `/joint_states` is a command cache, not a measurement; any future session
   that needs pose truth must carry the system layer's bus read.
 - The Studio cannot acquire a gateway token over SSH and must not be restarted
   just because the robot is unreachable.
-- Synthetic or mock results will never be reported as hardware validation.
+- Synthetic or mock results are never reported as hardware validation.
 - The reviewer sign-off is pending; this report is not an organization-wide
   acceptance.
 

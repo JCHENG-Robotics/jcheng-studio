@@ -1,0 +1,33 @@
+{
+  "name": "armpi-debug-studio-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "pretest:e2e": "npm run build",
+    "test:e2e:hardware": "playwright test",
+    "pretest:e2e:hardware": "npm run build",
+    "test:e2e:report": "playwright show-report"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.5"
+  }
+}

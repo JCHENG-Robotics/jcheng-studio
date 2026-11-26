@@ -28,3 +28,10 @@ models/
 
 # Operator configuration: gateway URL and token stay in ~/.config/armpi-studio/.
 *.env
+
+# Frontend build output and test artifacts.
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+*.tsbuildinfo
+node_modules/

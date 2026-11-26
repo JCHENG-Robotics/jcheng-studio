@@ -1,0 +1,23 @@
+# Visual Workbench model inputs (G4)
+#
+# The URDF is the project xacro. It is explicitly PROVISIONAL: limits and
+# meshes are not hardware-measured. The camera extrinsic below is the validated
+# TSAI hand-eye result from 2026-11-17 (`T_link4_camera`), expressed as the
+# OpenCV optical frame. It is an extrinsic measurement, not a live TF feed.
+
+schema_version: 1
+urdf_verified: false
+urdf_note: "Vendor xacro; joint limits and meshes are provisional, not mechanically measured."
+camera:
+  parent_link: link4
+  frame: camera_optical_calibrated
+  body_frame: rgb_camera_link
+  calibration_version: handeye-tsai-20261117
+  calibration_source: "chessboard TSAI hand-eye, 14 poses, 2026-11-17"
+  truth: measured
+  translation_m: [-0.0348, -0.0091, 0.0586]
+  rpy_deg: [0.951, -0.058, -89.789]
+  notes:
+    - "T_link4_camera from the validated chessboard hand-eye; camera optical axes."
+    - "The live image CameraInfo frame is rgb_camera_link (body), not this optical frame."
+    - "The URDF camera_optical_frame is nominal and must not be used for PnP."

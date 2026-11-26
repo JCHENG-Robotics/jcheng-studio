@@ -1,30 +1,33 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.1.0 has no runtime surface:
-> no backend, no UI and no gateway call exist. Everything below marked M1/M2 is
-> planned, not implemented.
+> Status: **Experimental** as of 2026-11-26. v0.4.0 ports the frozen console
+> backend and UI and implements the read-only `/v1` REST client (health,
+> contract, state, safety) and `/v1/ws/state` subscription. The ported legacy
+> HTTP adapter is documented in section 2. Everything marked M2 remains
+> planned.
 
 ## 1. Admission and discovery
 
-The system reads `capability.yaml` and checks the admission fields. For v0.1.0
+The system reads `capability.yaml` and checks the admission fields. For v0.4.0
 it finds:
 
 | Field | Value | Meaning |
 |---|---|---|
 | `name` | `jcheng-studio` | application identity |
-| `version` | `0.1.0` | must match `VERSION` |
+| `version` | `0.4.0` | must match `VERSION` |
 | `contract.interfaces` | `>=0.1,<0.2` | pinned contract range |
 | `contract.contract_hash` | `sha256:0b8d72…24b42` | must match the interfaces manifest |
-| `safety.class` | `offline` | no runtime object to discover |
+| `safety.class` | `observer` | read-only HTTP client; no runtime motion object |
 | `safety.scopes` | `[]` | the Studio holds no motion scope |
 | `safety.requires_lease` | `true` | required by the schema; the Studio is never the lease holder |
 | `hardware_access` | `none` | hard boundary |
 | `runtime` | empty | no ROS domain, no topics, no services |
 
-Because the runtime surface is empty, admission means "no runtime object to
-discover". The Studio is not a ROS node and never appears in a DDS graph; the
-system layer does not need to arbitrate with it. When M1 adds the gateway
-client, the runtime surface stays empty: HTTP/WS is not a ROS interface.
+Because the **ROS** runtime surface is empty, admission means "no ROS object
+to discover". The ported backend is an HTTP process, not a ROS node, and never
+appears in a DDS graph; the system layer does not need to arbitrate with it.
+The `/v1` client keeps the ROS runtime surface empty: HTTP/WS is not a ROS
+interface.
 
 ## 2. Gateway transport and contract
 
@@ -33,14 +36,18 @@ no second path: no SSH, no vendor SDK, no ROS topic, no serial device.
 
 | Item | Rule |
 |---|---|
-| Base URL | Operator configuration (`ARMPI_GATEWAY_URL`); no address is hard-coded |
-| Authentication | `Authorization: Bearer <token>` per the gateway OpenAPI; the token is read from `~/.config/armpi-studio/studio.env` (0600) |
+| Base URL | Operator configuration (`ARMPI_GATEWAY_V1_URL`); no address is hard-coded |
+| Authentication | `Authorization: Bearer <token>` per the gateway OpenAPI; the token comes from `ARMPI_GATEWAY_V1_TOKEN` (operator env/file, 0600) |
 | Health | `GET /v1/health` is unauthenticated liveness; it carries no motion authority |
 | Contract | `GET /v1/contract` returns the deployed contract identity; a hash mismatch refuses the session |
-| State and safety | `GET /v1/state`, `GET /v1/safety`, plus the WebSocket stream |
-| WebSocket | One subscription using `jcheng-ws.v1.json` (`hello`, `state`, `safety`, `lease`, `motion`, `event`, `ping`, `pong`) |
+| State and safety | `GET /v1/state`, `GET /v1/safety` (M1a); the live stream is `/v1/ws/state` (M1b) |
+| WebSocket | One `/v1/ws/state` subscription using `jcheng-ws.v1.json` (`hello`, `state`, `safety`, `lease`, `motion`, `event`, `ping`, `pong`); `hello`/`state`/`safety` surfaced |
 | Ports | Deployment detail, not contract: `jcheng-system` documents 8766 (supervised) and 8767 (read-only). The Studio reads the configured URL and assumes nothing |
 | Middleware | No DDS, no RMW, no `CYCLONEDDS_URI`. HTTP/WS only |
+
+The legacy adapter uses the separate `ARMPI_GATEWAY_URL` and
+`ARMPI_GATEWAY_TOKEN`; the `/v1` client never falls back to those names or
+paths.
 
 The authoritative documents are
 [`jcheng-gateway.v1.yaml`](https://github.com/JCHENG-Robotics/jcheng-interfaces/blob/main/schemas/openapi/jcheng-gateway.v1.yaml)
@@ -48,16 +55,20 @@ and [`jcheng-ws.v1.json`](https://github.com/JCHENG-Robotics/jcheng-interfaces/b
 Endpoints the Studio needs that are absent from the OpenAPI document are added
 to `jcheng-interfaces` first — the Studio does not invent a private endpoint.
 
-### Deprecated pre-ecosystem paths
+### Legacy pre-ecosystem adapter (ported v0.2.0)
 
-The frozen Studio in `jcheng-manipulation` used the older gateway `/health`
-with an `X-Armpi-Token` header and a local `/api/health`. Neither is a contract
-of this repository. During migration:
+The ported console includes the frozen Studio's older gateway client
+(`backend/app/adapters/gateway.py`), which uses `/health` with an
+`X-Armpi-Token` header. It is enabled only in `ARMPI_MODE=hardware` and exists
+so the ported console can run against an already-deployed frozen gateway.
+During migration:
 
 - The local backend keeps `/api/health` as a liveness probe for the
   `jcheng-ops` watchdog. It reports backend liveness only and never robot state.
-- The robot-facing client uses `/v1/*` and `Authorization: Bearer`. It does not
-  carry a compatibility shim for `/health` or for the old token header.
+- The legacy adapter is **not** a contract of this repository. New features
+  must not use it, and it does not become a compatibility shim for `/v1`.
+- The `/v1` client (M1) uses `Authorization: Bearer` and does not carry a
+  compatibility shim for `/health` or for the old token header.
 
 ## 3. Operator sessions and authorization
 
@@ -118,7 +129,9 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | Stage | Evidence |
 |---|---|
 | v0.1.0 admission | `python3 -m pytest -q tests`; `bash scripts/check_repo_gate.sh` |
-| M1 gateway client | contract, health, state and safety read-only tests against a mock gateway (L2) |
+| v0.2.0 console port | backend tests, frontend build, no-hardware scan; mock API paths only (L0–L2) |
+| v0.3.0 M1a read-only `/v1` | health, contract, state and safety tests against a mock gateway; Bearer, mismatch and unreachable paths (L2) |
+| v0.4.0 M1b WebSocket | subscription, envelope, hello-first and reconnect tests against a mock WebSocket server; loopback interop with the real `jcheng-system` read-only gateway (L2) |
 | M2 session and joint debug | mock gateway proves lease-required, stale-state and fail-closed paths (L3) |
 | M3 trajectory inspection | replay of recorded sessions (L4); no robot |
 | M4 supervised hardware | separately authorized L5 session with system limits and stop latch active |
