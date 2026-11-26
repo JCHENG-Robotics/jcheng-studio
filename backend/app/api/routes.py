@@ -173,6 +173,12 @@ def gateway_v1_status(request: Request) -> dict[str, Any]:
     return _service(request).gateway_v1_status()
 
 
+@router.get("/gateway/v1/stream")
+def gateway_v1_stream(request: Request) -> dict[str, Any]:
+    """Read a short /v1/ws/state subscription; no lease, no intent."""
+    return _service(request).gateway_v1_stream_probe()
+
+
 @router.post("/diagnostics/probe")
 def probe(request: Request) -> dict[str, Any]:
     return _service(request).probe()

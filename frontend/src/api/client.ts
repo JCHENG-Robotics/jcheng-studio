@@ -10,6 +10,7 @@ import type {
   ExperimentDetail,
   ExperimentList,
   GatewayV1Status,
+  GatewayV1StreamStatus,
   Lease,
   MotionPresetList,
   Peripherals,
@@ -188,6 +189,9 @@ export const api = {
   },
   async gatewayV1Status(): Promise<GatewayV1Status> {
     return request<GatewayV1Status>("/api/gateway/v1/status");
+  },
+  async gatewayV1Stream(): Promise<GatewayV1StreamStatus> {
+    return request<GatewayV1StreamStatus>("/api/gateway/v1/stream");
   },
   async peripherals(): Promise<Peripherals> {
     return request<Peripherals>("/api/peripherals");

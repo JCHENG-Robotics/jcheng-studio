@@ -1,0 +1,23 @@
+{
+  "configured": true,
+  "reachable": true,
+  "authenticated": true,
+  "read_only": true,
+  "ready": true,
+  "contract_hash": "sha256:0b8d72ced7f54d444d6851d8b99a51a78e2bed3f687324f51a15f76557f24b42",
+  "contract_match": true,
+  "state_truth": "measured",
+  "state_fresh": true,
+  "state_seq": 0,
+  "joint_count": 5,
+  "safety_state": "DISARMED",
+  "stop_latched": false,
+  "message_types": [
+    "hello",
+    "state",
+    "safety"
+  ],
+  "latency_ms": 2,
+  "errors": []
+}
+REAL_WS_OK

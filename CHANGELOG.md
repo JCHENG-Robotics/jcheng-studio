@@ -6,6 +6,32 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-26
+
+### Added
+
+- Read-only `/v1/ws/state` WebSocket client
+  (`backend/app/adapters/gateway_v1_stream.py`) using the `websockets` sync API:
+  one subscription receives `hello` then `state`/`safety` envelopes, validates
+  `jcheng-ws.v1.json`, requires `hello` first and reconnects with bounded
+  backoff. No POST, lease, motion or stop method.
+- `GET /api/gateway/v1/stream` and a "流探测" action on the Diagnostics
+  "Gateway v1" card.
+- Eight mock-WebSocket tests and a loopback interop run against the real
+  `jcheng-system` read-only gateway (`c036fe4`), which now serves
+  `/v1/ws/state`.
+- `evidence/20261126_gateway_ws/`.
+
+### Changed
+
+- Version 0.4.0. Backend suite: 172 passed.
+- `websockets==17.4` is an explicit backend dependency.
+
+### Not included
+
+- Persistent session recording of the stream; the probe is deliberately short.
+- Lease, motion intent or any write path; the console remains read-only.
+
 ## [0.3.0] — 2026-11-26
 
 ### Added

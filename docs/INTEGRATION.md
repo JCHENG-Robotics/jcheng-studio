@@ -1,20 +1,20 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.3.0 ports the frozen console
+> Status: **Experimental** as of 2026-11-26. v0.4.0 ports the frozen console
 > backend and UI and implements the read-only `/v1` REST client (health,
-> contract, state, safety). The WebSocket subscription is M1b, and the ported
-> legacy HTTP adapter is documented in section 2. Everything marked M2 remains
+> contract, state, safety) and `/v1/ws/state` subscription. The ported legacy
+> HTTP adapter is documented in section 2. Everything marked M2 remains
 > planned.
 
 ## 1. Admission and discovery
 
-The system reads `capability.yaml` and checks the admission fields. For v0.3.0
+The system reads `capability.yaml` and checks the admission fields. For v0.4.0
 it finds:
 
 | Field | Value | Meaning |
 |---|---|---|
 | `name` | `jcheng-studio` | application identity |
-| `version` | `0.3.0` | must match `VERSION` |
+| `version` | `0.4.0` | must match `VERSION` |
 | `contract.interfaces` | `>=0.1,<0.2` | pinned contract range |
 | `contract.contract_hash` | `sha256:0b8d72…24b42` | must match the interfaces manifest |
 | `safety.class` | `observer` | read-only HTTP client; no runtime motion object |
@@ -40,8 +40,8 @@ no second path: no SSH, no vendor SDK, no ROS topic, no serial device.
 | Authentication | `Authorization: Bearer <token>` per the gateway OpenAPI; the token comes from `ARMPI_GATEWAY_V1_TOKEN` (operator env/file, 0600) |
 | Health | `GET /v1/health` is unauthenticated liveness; it carries no motion authority |
 | Contract | `GET /v1/contract` returns the deployed contract identity; a hash mismatch refuses the session |
-| State and safety | `GET /v1/state`, `GET /v1/safety` (implemented, M1a); the WebSocket stream is M1b |
-| WebSocket | One subscription using `jcheng-ws.v1.json` (`hello`, `state`, `safety`, `lease`, `motion`, `event`, `ping`, `pong`); planned |
+| State and safety | `GET /v1/state`, `GET /v1/safety` (M1a); the live stream is `/v1/ws/state` (M1b) |
+| WebSocket | One `/v1/ws/state` subscription using `jcheng-ws.v1.json` (`hello`, `state`, `safety`, `lease`, `motion`, `event`, `ping`, `pong`); `hello`/`state`/`safety` surfaced |
 | Ports | Deployment detail, not contract: `jcheng-system` documents 8766 (supervised) and 8767 (read-only). The Studio reads the configured URL and assumes nothing |
 | Middleware | No DDS, no RMW, no `CYCLONEDDS_URI`. HTTP/WS only |
 
@@ -131,7 +131,7 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | v0.1.0 admission | `python3 -m pytest -q tests`; `bash scripts/check_repo_gate.sh` |
 | v0.2.0 console port | backend tests, frontend build, no-hardware scan; mock API paths only (L0–L2) |
 | v0.3.0 M1a read-only `/v1` | health, contract, state and safety tests against a mock gateway; Bearer, mismatch and unreachable paths (L2) |
-| M1b WebSocket | subscription and reconnect tests against a mock WebSocket server (L2) |
+| v0.4.0 M1b WebSocket | subscription, envelope, hello-first and reconnect tests against a mock WebSocket server; loopback interop with the real `jcheng-system` read-only gateway (L2) |
 | M2 session and joint debug | mock gateway proves lease-required, stale-state and fail-closed paths (L3) |
 | M3 trajectory inspection | replay of recorded sessions (L4); no robot |
 | M4 supervised hardware | separately authorized L5 session with system limits and stop latch active |

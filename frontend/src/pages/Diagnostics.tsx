@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
-import type { GatewayV1Status, ProbeResult } from "../api/types";
+import type { GatewayV1Status, GatewayV1StreamStatus, ProbeResult } from "../api/types";
 import {
   Button,
   Card,
@@ -42,6 +42,12 @@ export function DiagnosticsPage() {
   const [gatewayV1, setGatewayV1] = useState<GatewayV1Status | null>(null);
   const [gatewayV1Error, setGatewayV1Error] = useState<string | null>(null);
   const [gatewayV1Busy, setGatewayV1Busy] = useState(false);
+  const [gatewayV1Stream, setGatewayV1Stream] =
+    useState<GatewayV1StreamStatus | null>(null);
+  const [gatewayV1StreamError, setGatewayV1StreamError] = useState<string | null>(
+    null,
+  );
+  const [gatewayV1StreamBusy, setGatewayV1StreamBusy] = useState(false);
 
   const loadGatewayV1 = async () => {
     setGatewayV1Busy(true);
@@ -52,6 +58,18 @@ export function DiagnosticsPage() {
       setGatewayV1Error(errorText(caught));
     } finally {
       setGatewayV1Busy(false);
+    }
+  };
+
+  const loadGatewayV1Stream = async () => {
+    setGatewayV1StreamBusy(true);
+    setGatewayV1StreamError(null);
+    try {
+      setGatewayV1Stream(await api.gatewayV1Stream());
+    } catch (caught) {
+      setGatewayV1StreamError(errorText(caught));
+    } finally {
+      setGatewayV1StreamBusy(false);
     }
   };
 
@@ -157,13 +175,22 @@ export function DiagnosticsPage() {
         title="Gateway v1 · 只读诊断"
         subtitle="jcheng-system /v1；health / contract / state / safety"
         actions={
-          <Button
-            variant="secondary"
-            onClick={() => void loadGatewayV1()}
-            disabled={gatewayV1Busy}
-          >
-            {gatewayV1Busy ? "读取中…" : "刷新"}
-          </Button>
+          <div className="button-row">
+            <Button
+              variant="secondary"
+              onClick={() => void loadGatewayV1()}
+              disabled={gatewayV1Busy}
+            >
+              {gatewayV1Busy ? "读取中…" : "刷新"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void loadGatewayV1Stream()}
+              disabled={gatewayV1StreamBusy}
+            >
+              {gatewayV1StreamBusy ? "探测中…" : "流探测"}
+            </Button>
+          </div>
         }
       >
         {gatewayV1Error && <p className="error-text">{gatewayV1Error}</p>}
@@ -253,6 +280,65 @@ export function DiagnosticsPage() {
                 ))}
               </div>
             )}
+            <div className="gateway-stream">
+              <div className="kv-list">
+                <KeyValue label="WS 流">
+                  <StatusChip
+                    tone={
+                      !gatewayV1Stream
+                        ? "neutral"
+                        : gatewayV1Stream.ready
+                          ? "ok"
+                          : gatewayV1Stream.reachable
+                            ? "warning"
+                            : "fault"
+                    }
+                    label={
+                      !gatewayV1Stream
+                        ? "未探测"
+                        : gatewayV1Stream.ready
+                          ? "流就绪"
+                          : gatewayV1Stream.reachable
+                            ? "已连接 · 未就绪"
+                            : "不可达"
+                    }
+                  />
+                </KeyValue>
+                <KeyValue label="信封序列">
+                  {gatewayV1Stream?.message_types.join(" → ") || "—"}
+                </KeyValue>
+                <KeyValue label="流真值">
+                  {gatewayV1Stream?.state_truth ?? "—"}
+                </KeyValue>
+                <KeyValue label="流安全状态">
+                  {gatewayV1Stream?.safety_state ?? "—"}
+                </KeyValue>
+                <KeyValue label="流延迟">
+                  {gatewayV1Stream?.latency_ms === null ||
+                  gatewayV1Stream?.latency_ms === undefined
+                    ? "—"
+                    : `${gatewayV1Stream.latency_ms} ms`}
+                </KeyValue>
+              </div>
+              {gatewayV1StreamError && (
+                <p className="error-text">{gatewayV1StreamError}</p>
+              )}
+              {gatewayV1Stream?.errors.length ? (
+                <div className="fault-list">
+                  {gatewayV1Stream.errors.map((issue, index) => (
+                    <div className="fault-item" key={`ws-${issue.code}-${index}`}>
+                      <StatusChip tone="warning" label={issue.code} />
+                      <span>{issue.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {!gatewayV1Stream && !gatewayV1StreamError && (
+                <p className="footnote">
+                  点击“流探测”打开一次短订阅（/v1/ws/state）；只接收信封，不发送意图。
+                </p>
+              )}
+            </div>
             <p className="footnote">
               只读：不发送 POST，不持有租约，不发布运动；Token 仅在后端进程内使用。
             </p>

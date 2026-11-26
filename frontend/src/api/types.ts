@@ -206,6 +206,25 @@ export interface GatewayV1Status {
   errors: GatewayV1Issue[];
 }
 
+export interface GatewayV1StreamStatus {
+  configured: boolean;
+  reachable: boolean;
+  authenticated: boolean;
+  read_only: boolean;
+  ready: boolean;
+  contract_hash: string | null;
+  contract_match: boolean | null;
+  state_truth: string | null;
+  state_fresh: boolean | null;
+  state_seq: number | null;
+  joint_count: number | null;
+  safety_state: string | null;
+  stop_latched: boolean | null;
+  message_types: string[];
+  latency_ms: number | null;
+  errors: GatewayV1Issue[];
+}
+
 export interface EventRecord {
   seq: number;
   event_id: string;

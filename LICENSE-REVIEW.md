@@ -10,8 +10,8 @@
 | Item | Fact |
 |---|---|
 | `LICENSE` file | none |
-| Code in v0.3.0 | ported backend, UI, configs, tools, tests, the read-only `/v1` client and a shell gate |
-| Runtime dependencies | FastAPI, uvicorn, pydantic, PyYAML, numpy; React, React Router, Zod, Zustand, Vite |
+| Code in v0.4.0 | ported backend, UI, configs, tools, tests, the read-only `/v1` REST and WS clients and a shell gate |
+| Runtime dependencies | FastAPI, uvicorn, pydantic, PyYAML, numpy, websockets; React, React Router, Zod, Zustand, Vite |
 | Test dependencies | `pytest`, `httpx`, `playwright` |
 | Existing Studio code | ported from the frozen `jcheng-manipulation` baseline (MIT) at `a08b8b6`; port record in [`docs/MIGRATION.md`](docs/MIGRATION.md) |
 | Vendor code or weights | none copied; the vendor-derived URDF/xacro and meshes were deliberately excluded. The test fixture is a minimal project-authored kinematic file with no vendor mesh data. |
@@ -46,6 +46,7 @@ The review must decide before the ecosystem reaches v1.0:
 | pydantic | backend models | MIT | Low |
 | PyYAML | manifest and config parsing | MIT | Low |
 | numpy | pose/task math | BSD-3-Clause | Low |
+| websockets | read-only `/v1/ws/state` client | BSD-3-Clause | Low |
 | jcheng_core (ported) | statistics and point-cloud primitives | Project code, baseline MIT | Low |
 | pytest / httpx | tests only | MIT / BSD-3-Clause | Low |
 | React, React DOM, React Router | UI | MIT | Low |

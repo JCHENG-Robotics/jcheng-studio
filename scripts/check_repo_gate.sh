@@ -49,6 +49,7 @@ for f in \
   evidence/20261126_scaffold/README.md \
   evidence/20261126_console_port/README.md \
   evidence/20261126_gateway_v1/README.md \
+  evidence/20261126_gateway_ws/README.md \
   .github/workflows/ci.yml
 do
   require_file "$f"

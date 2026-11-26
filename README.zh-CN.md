@@ -2,10 +2,11 @@
 
 [English](README.md) | **简体中文**
 
-> 状态：**实验性**，2026-11-26。版本 0.3.0。
+> 状态：**实验性**，2026-11-26。版本 0.4.0。
 > 已从 `jcheng-manipulation` 冻结基线迁入 ArmPi Debug Studio 控制台，并实现只读
-> `/v1` REST 客户端（health、contract、state、safety）；已用 mock 网关验证。WebSocket
-> 订阅和机器人侧网关仍不在本里程碑内，本仓库尚未执行任何实机会话。
+> `/v1` REST 客户端（health、contract、state、safety）与只读 `/v1/ws/state` 订阅；
+> 已用 mock 网关和真实的 `jcheng-system` 只读网关验证。机器人侧网关仍不在本仓库，
+> 本仓库尚未执行任何实机会话。
 > 英文为正式版本，见 [README.md](README.md)；本文为中文对照。
 
 `jcheng-studio` 是 JCHENG 生态的 L4 操作台，也是 ArmPi Debug Studio 在生态中的
@@ -40,6 +41,7 @@
 |---|---|---|
 | FastAPI 后端、mock 适配器与 legacy HTTP 适配器 | `backend/` | 已迁移；离线测试通过 |
 | 只读 `/v1` REST 客户端与诊断 | `backend/app/adapters/gateway_v1.py`；诊断页 | M1a 完成；已用 mock 网关验证 |
+| 只读 `/v1/ws/state` 订阅 | `backend/app/adapters/gateway_v1_stream.py`；诊断页 | M1b 完成；mock 与真实 `jcheng-system` 网关验证 |
 | React/TypeScript 控制台（八个页面） | `frontend/` | 已迁移；生产构建通过 |
 | 关节映射、位姿/任务契约与视觉模型 | `configs/` | 已迁移 |
 | 任务契约使用的手眼标定 | `configs/calibration/` | 已迁移（2026-11-18 TSAI 结果） |
@@ -49,7 +51,8 @@
 
 未迁移：机器人侧 `ros2_gateway/`（ROS 2/DDS，L2）、运行时 `data/studio.db`、硬件
 证据包，以及厂商派生的 URDF。legacy HTTP 适配器面向冻结网关（`/health`、
-`X-Armpi-Token`），不是生态的 `/v1` 契约。`/v1` WebSocket 订阅属于 M1b，尚未实现。
+`X-Armpi-Token`），不是生态的 `/v1` 契约。`/v1` REST 与 WebSocket 客户端都是
+只读的；租约与运动意图属于 M2。
 
 ## 仓库结构
 
@@ -57,7 +60,7 @@
 jcheng-studio/
 ├── backend/
 │   ├── app/                     # FastAPI 应用、适配器、安全核心、领域与持久化
-│   └── tests/                   # 164 passed；mock、legacy 与 /v1 客户端路径
+│   └── tests/                   # 172 passed；mock、legacy、/v1 REST 与 WS 路径
 ├── packages/jcheng_core/        # 共享的纯 Python 统计与点云原语
 ├── configs/                     # 关节映射、接管契约、视觉模型、标定
 ├── frontend/
@@ -79,7 +82,8 @@ jcheng-studio/
 ├── scripts/check_repo_gate.sh   # 仓库门禁（本地与 CI）
 ├── evidence/20261126_scaffold/  # M0 证据记录
 ├── evidence/20261126_console_port/  # v0.2.0 迁移证据
-├── evidence/20261126_gateway_v1/    # M1a 只读客户端证据
+├── evidence/20261126_gateway_v1/    # M1a 只读 REST 客户端证据
+├── evidence/20261126_gateway_ws/    # M1b 只读 WS 客户端证据
 ├── VERSION
 ├── README.md / README.zh-CN.md
 ├── ROADMAP.md / CHANGELOG.md / ACCEPTANCE.md
@@ -88,9 +92,9 @@ jcheng-studio/
 
 ## 环境要求
 
-- Python 3.11–3.12 与 `pip`；后端固定 FastAPI、uvicorn、pydantic、PyYAML 与
-  numpy。`pytest` 与 `httpx` 是测试依赖。本地 `packages/jcheng_core` 提供共享的
-  统计与点云原语，需单独以 editable 方式安装（不是 PyPI 依赖）。
+- Python 3.11–3.12 与 `pip`；后端固定 FastAPI、uvicorn、pydantic、PyYAML、
+  numpy 与 websockets。`pytest` 与 `httpx` 是测试依赖。本地 `packages/jcheng_core`
+  提供共享的统计与点云原语，需单独以 editable 方式安装（不是 PyPI 依赖）。
 - Node.js 20 与 npm；`npm ci` 安装锁定版本的前端工具链。
 - 任何阶段都不需要 ROS：控制台是 HTTP/WS 客户端，不加入 DDS 图。
 - 运行时需要操作员网络可达的 `jcheng-system` 网关；门禁本身不需要机器人，也不
@@ -131,15 +135,17 @@ tools/studio/start_studio.sh
 
 | 声明 | 状态 | 证据 |
 |---|---|---|
-| 仓库门禁、准入清单与文档集通过 | 已验证（L0，2026-11-26） | [`evidence/20261126_gateway_v1/`](evidence/20261126_gateway_v1/README.md) |
-| 后端套件：164 passed | 已验证（L1，2026-11-26） | [`evidence/20261126_gateway_v1/backend-tests.txt`](evidence/20261126_gateway_v1/backend-tests.txt) |
+| 仓库门禁、准入清单与文档集通过 | 已验证（L0，2026-11-26） | [`evidence/20261126_gateway_ws/`](evidence/20261126_gateway_ws/README.md) |
+| 后端套件：172 passed | 已验证（L1，2026-11-26） | [`evidence/20261126_gateway_ws/backend-tests.txt`](evidence/20261126_gateway_ws/backend-tests.txt) |
 | 只读 `/v1` REST 客户端（health、contract、state、safety） | 已验证（L2，mock 网关，2026-11-26） | [`backend/tests/test_gateway_v1.py`](backend/tests/test_gateway_v1.py)；[证据](evidence/20261126_gateway_v1/README.md) |
-| 前端生产构建通过 | 已验证（L0，2026-11-26） | [`evidence/20261126_gateway_v1/frontend-build.txt`](evidence/20261126_gateway_v1/frontend-build.txt) |
-| 扫描范围内无设备路径、DDS/ROS 接口、厂商话题或运动调用 | 已验证（L0，2026-11-26） | `tests/test_no_hardware.py`；[门禁记录](evidence/20261126_gateway_v1/gate.txt) |
+| 只读 `/v1/ws/state` 订阅 | 已验证（L2，mock 网关，2026-11-26） | [`backend/tests/test_gateway_v1_stream.py`](backend/tests/test_gateway_v1_stream.py)；[证据](evidence/20261126_gateway_ws/README.md) |
+| 真实 `jcheng-system` 只读网关的 WS 联调 | 已验证（L2，loopback，2026-11-26） | [`evidence/20261126_gateway_ws/integration.txt`](evidence/20261126_gateway_ws/integration.txt) |
+| 前端生产构建通过 | 已验证（L0，2026-11-26） | [`evidence/20261126_gateway_ws/frontend-build.txt`](evidence/20261126_gateway_ws/frontend-build.txt) |
+| 扫描范围内无设备路径、DDS/ROS 接口、厂商话题或运动调用 | 已验证（L0，2026-11-26） | `tests/test_no_hardware.py`；[门禁记录](evidence/20261126_gateway_ws/gate.txt) |
 | Mock HTTP API 路径（预览、执行、外设、任务规划） | 已验证（L2，仅 mock，2026-11-26） | `backend/tests/` |
 | Playwright 浏览器 E2E | 未验证 | 本次迁移未运行 |
 | Legacy 网关集成（只读或运动） | 未验证 | 本仓库未实际调用 legacy 适配器 |
-| `/v1` WebSocket 订阅、操作会话与 M2 会话存储 | 未开始 | M1b/M2 路线图 |
+| 操作会话与 M2 会话存储 | 未开始 | M2 路线图 |
 | 实机运动 | 未验证 | 未授权任何会话；本仓库无硬件证据 |
 
 完整报告见 [ACCEPTANCE.md](ACCEPTANCE.md)。
