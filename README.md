@@ -2,14 +2,15 @@
 
 [简体中文](README.zh-CN.md) | **English**
 
-> Status: **Experimental** as of 2026-11-26. Version 0.5.0.
+> Status: **Experimental** as of 2026-11-26. Version 0.6.0.
 > The frozen ArmPi Debug Studio console has been ported from the
 > `jcheng-manipulation` baseline. The read-only `/v1` REST client
 > (health, contract, state, safety) and `/v1/ws/state` subscription are
 > verified against mock gateways and a real `jcheng-system` read-only gateway.
-> The M2a operator-session store and authorization gate are implemented; M2b
-> joint/gripper intent is not. The robot-side gateway remains outside this
-> repository, and no hardware session was run here.
+> The M2a operator-session store and M2b joint/gripper intent forwarding are
+> implemented; the operator supplies a system-issued lease and the Studio never
+> holds one. The robot-side gateway remains outside this repository, and no
+> hardware session was run here.
 > English canonical; see [README.zh-CN.md](README.zh-CN.md) for the Chinese translation.
 
 `jcheng-studio` is the L4 operator console of the JCHENG ecosystem — the
@@ -52,6 +53,7 @@ repository's boundary. The complete source and exclusion record is in
 | Read-only `/v1` REST client and diagnostics | `backend/app/adapters/gateway_v1.py`; Diagnostics page | M1a complete; mock-gateway verified |
 | Read-only `/v1/ws/state` subscription | `backend/app/adapters/gateway_v1_stream.py`; Diagnostics page | M1b complete; mock + real `jcheng-system` gateway verified |
 | M2a operator-session store and authorization gate | `backend/app/sessions/`; Diagnostics page | Complete; SQLite outside git, seal/export tested |
+| M2b joint/gripper intent forwarding | `backend/app/adapters/gateway_v1_intent.py`; Diagnostics page | Complete; operator-supplied lease, mock validate/execute verified |
 | React/TypeScript console with eight pages | `frontend/` | Ported; production build passes |
 | Joint mapping, pose/task contract and visual model | `configs/` | Ported |
 | Hand-eye calibration used by the task contract | `configs/calibration/` | Ported (2026-11-18 TSAI result) |
@@ -63,8 +65,9 @@ Not ported: the robot-side `ros2_gateway/` (ROS 2/DDS, L2), the runtime
 `data/studio.db`, the hardware evidence bundles and the vendor-derived URDF.
 The legacy HTTP adapter targets the frozen gateway (`/health`,
 `X-Armpi-Token`); it is not the ecosystem `/v1` contract. The `/v1` clients and
-the M2a session store are read-only for robot motion; M2b adds joint/gripper
-intent through the system gateway's lease path.
+the M2a session store are read-only for robot motion; M2b forwards joint/gripper
+intent with an **operator-supplied, system-issued lease**. The Studio never
+acquires, renews, releases or holds a lease.
 
 ## Repository layout
 
@@ -72,7 +75,7 @@ intent through the system gateway's lease path.
 jcheng-studio/
 ├── backend/
 │   ├── app/                     # FastAPI app, adapters, safety core, domain, persistence
-│   └── tests/                   # 179 passed; mock, /v1 REST/WS and session paths
+│   └── tests/                   # 187 passed; mock, /v1 REST/WS, session and intent paths
 ├── packages/jcheng_core/        # shared pure-Python stats and point-cloud primitives
 ├── configs/                     # joint mapping, takeover contract, visual model, calibration
 ├── frontend/
@@ -97,6 +100,7 @@ jcheng-studio/
 ├── evidence/20261126_gateway_v1/    # M1a read-only REST client evidence
 ├── evidence/20261126_gateway_ws/    # M1b read-only WS client evidence
 ├── evidence/20261126_sessions/      # M2a session store evidence
+├── evidence/20261126_intent/        # M2b intent evidence
 ├── VERSION
 ├── README.md / README.zh-CN.md
 ├── ROADMAP.md / CHANGELOG.md / ACCEPTANCE.md
@@ -157,18 +161,19 @@ domain.
 
 | Claim | Status | Evidence |
 |---|---|---|
-| Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_sessions/`](evidence/20261126_sessions/README.md) |
-| Backend suite: 179 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_sessions/backend-tests.txt`](evidence/20261126_sessions/backend-tests.txt) |
+| Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_intent/`](evidence/20261126_intent/README.md) |
+| Backend suite: 187 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_intent/backend-tests.txt`](evidence/20261126_intent/backend-tests.txt) |
 | Read-only `/v1` REST client (health, contract, state, safety) | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1.py`](backend/tests/test_gateway_v1.py); [evidence](evidence/20261126_gateway_v1/README.md) |
 | Read-only `/v1/ws/state` subscription | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1_stream.py`](backend/tests/test_gateway_v1_stream.py); [evidence](evidence/20261126_gateway_ws/README.md) |
 | WS interop with the real `jcheng-system` read-only gateway | Verified (L2, loopback, 2026-11-26) | [`evidence/20261126_gateway_ws/integration.txt`](evidence/20261126_gateway_ws/integration.txt) |
 | M2a session lifecycle, authorization refusal, seal/export hash and redaction | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_sessions.py`](backend/tests/test_sessions.py); [evidence](evidence/20261126_sessions/README.md) |
-| Frontend production build passes | Verified (L0, 2026-11-26) | [`evidence/20261126_sessions/frontend-build.txt`](evidence/20261126_sessions/frontend-build.txt) |
-| No device path, DDS/ROS interface, vendor topic or motion call appears in scanned code, config or scripts | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py`; [gate record](evidence/20261126_sessions/gate.txt) |
+| M2b joint/gripper intent validate + execute, lease supplied by operator, no `/v1/leases` call | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1_intent.py`](backend/tests/test_gateway_v1_intent.py); [evidence](evidence/20261126_intent/README.md) |
+| Frontend production build passes | Verified (L0, 2026-11-26) | [`evidence/20261126_intent/frontend-build.txt`](evidence/20261126_intent/frontend-build.txt) |
+| No device path, DDS/ROS interface, vendor topic or motion call appears in scanned code, config or scripts | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py`; [gate record](evidence/20261126_intent/gate.txt) |
 | Mock HTTP API paths (preview, execute, peripherals, task plan) | Verified (L2, mock only, 2026-11-26) | `backend/tests/` |
 | Playwright browser E2E | Unverified | Not run in this port |
 | Legacy gateway integration (read-only or motion) | Unverified | The legacy adapter is not exercised here |
-| Operator sessions and the M2 session store | Not started | M2 roadmap |
+| Trajectory inspection and experiment records (M3) | Not started | M3 roadmap |
 | Hardware motion | Unverified | No session authorized; no hardware evidence in this repository |
 
 Full report: [ACCEPTANCE.md](ACCEPTANCE.md).

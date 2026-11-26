@@ -20,6 +20,7 @@ import type {
   RobotState,
   SafetyReport,
   SessionExport,
+  SessionIntentResult,
   SessionRecord,
   StopResult,
   TargetPayload,
@@ -235,6 +236,31 @@ export const api = {
   },
   async sessionExport(sessionId: string): Promise<SessionExport> {
     return request<SessionExport>(`/api/session/${sessionId}/export`);
+  },
+  async sessionIntentJoint(input: {
+    session_id: string;
+    lease_id: string;
+    joint: string;
+    target_rad: number;
+    duration_s: number;
+    max_velocity_rad_s: number;
+  }): Promise<SessionIntentResult> {
+    return request<SessionIntentResult>("/api/session/intent/joint", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  async sessionIntentGripper(input: {
+    session_id: string;
+    lease_id: string;
+    position_rad: number;
+    duration_s: number;
+    max_velocity_rad_s: number;
+  }): Promise<SessionIntentResult> {
+    return request<SessionIntentResult>("/api/session/intent/gripper", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
   async peripherals(): Promise<Peripherals> {
     return request<Peripherals>("/api/peripherals");

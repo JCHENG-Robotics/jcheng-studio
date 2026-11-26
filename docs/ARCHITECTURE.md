@@ -1,9 +1,9 @@
 # Architecture — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. Version 0.5.0.
-> v0.5.0 ports the frozen console backend and UI, adds the read-only `/v1`
-> REST and `/v1/ws/state` clients, and adds the M2a operator-session store and
-> authorization gate. The ported legacy HTTP adapter is documented in
+> Status: **Experimental** as of 2026-11-26. Version 0.6.0.
+> v0.6.0 ports the frozen console backend and UI, adds the read-only `/v1`
+> REST and `/v1/ws/state` clients, the M2a session store and the M2b joint/
+> gripper intent path. The ported legacy HTTP adapter is documented in
 > [`MIGRATION.md`](MIGRATION.md) and is not the ecosystem contract.
 
 ## 1. Position in the ecosystem
@@ -51,6 +51,7 @@ Rules that come from the ecosystem and are not negotiable here:
 | Backend | `backend/` | HTTP/WS to the browser; read-only `/v1` HTTP/WS and legacy HTTP | No DDS, device, vendor SDK or motion execution |
 | `/v1` read-only REST client | `backend/app/adapters/gateway_v1.py` | HTTP, Bearer, GET only | health/contract/state/safety; no lease, motion or stop |
 | `/v1/ws/state` read-only client | `backend/app/adapters/gateway_v1_stream.py` | WebSocket, Bearer, one subscription | hello/state/safety; bounded reconnect; no intent |
+| `/v1` intent client | `backend/app/adapters/gateway_v1_intent.py` | HTTP POST, Bearer | validate/execute one joint/gripper intent; operator-supplied lease; no lease acquisition |
 | Session store | `backend/app/sessions/store.py` | SQLite outside git | Append-only events; authorization gate; no lease |
 | Mock adapter | `backend/app/adapters/mock.py` | In-process | Synthetic data; labelled `simulated` |
 | Legacy HTTP adapter | `backend/app/adapters/gateway.py` | HTTP `/health` + `X-Armpi-Token` | Frozen-baseline compatibility; not the `/v1` contract |
@@ -74,8 +75,10 @@ seal over the canonical record; export verifies the seal. Authorization calls
 the read-only `/v1` status and refuses unless the gateway is configured,
 reachable, authenticated, contract-matching, fresh and not stop-latched.
 Failures degrade the session. No token is stored; the gateway URL drops
-userinfo, query and fragment. A restart closes sessions left active. M2a has no
-lease or motion path; M2b adds joint/gripper intent.
+userinfo, query and fragment. A restart closes sessions left active. M2b adds
+joint/gripper intent: the operator supplies a system-issued lease, the Studio
+submits validate/execute, records the result, and never acquires or holds a
+lease itself. There is no base pulse, trajectory or stop endpoint in M2b.
 
 ## 2. Planes
 

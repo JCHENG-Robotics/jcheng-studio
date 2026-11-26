@@ -4,6 +4,7 @@ import type {
   GatewayV1Status,
   GatewayV1StreamStatus,
   ProbeResult,
+  SessionIntentResult,
   SessionRecord,
 } from "../api/types";
 import {
@@ -63,6 +64,19 @@ export function DiagnosticsPage() {
     path: string;
     hash: string;
   } | null>(null);
+  const [intentLease, setIntentLease] = useState("");
+  const [intentJoint, setIntentJoint] = useState("");
+  const [intentTarget, setIntentTarget] = useState("0");
+  const [intentDuration, setIntentDuration] = useState("1");
+  const [intentVelocity, setIntentVelocity] = useState("0.35");
+  const [intentGripperPosition, setIntentGripperPosition] = useState("0.8");
+  const [intentGripperDuration, setIntentGripperDuration] = useState("2");
+  const [intentGripperVelocity, setIntentGripperVelocity] = useState("0.5");
+  const [intentResult, setIntentResult] = useState<SessionIntentResult | null>(
+    null,
+  );
+  const [intentError, setIntentError] = useState<string | null>(null);
+  const [intentBusy, setIntentBusy] = useState(false);
 
   const loadGatewayV1 = async () => {
     setGatewayV1Busy(true);
@@ -150,6 +164,86 @@ export function DiagnosticsPage() {
     } finally {
       setSessionBusy(false);
     }
+  };
+
+  const runIntent = async (action: () => Promise<SessionIntentResult>) => {
+    setIntentBusy(true);
+    setIntentError(null);
+    setIntentResult(null);
+    try {
+      setIntentResult(await action());
+      setSession((await api.sessionCurrent()).session);
+    } catch (caught) {
+      setIntentError(errorText(caught));
+      try {
+        setSession((await api.sessionCurrent()).session);
+      } catch {
+        // The session refresh is best effort; the intent error is shown.
+      }
+    } finally {
+      setIntentBusy(false);
+    }
+  };
+
+  const jointIntent = () => {
+    if (!session) return;
+    const target = Number(intentTarget);
+    const duration = Number(intentDuration);
+    const velocity = Number(intentVelocity);
+    if (!intentLease.trim()) {
+      setIntentError("需要系统层签发的 lease ID");
+      return;
+    }
+    if (
+      !Number.isFinite(target) ||
+      !Number.isFinite(duration) ||
+      !Number.isFinite(velocity) ||
+      duration <= 0 ||
+      velocity <= 0
+    ) {
+      setIntentError("目标/时长/速度必须是有效数字，时长和速度需大于 0");
+      return;
+    }
+    void runIntent(() =>
+      api.sessionIntentJoint({
+        session_id: session.session_id,
+        lease_id: intentLease.trim(),
+        joint: intentJoint || robot?.joints[0]?.name || "joint1",
+        target_rad: target,
+        duration_s: duration,
+        max_velocity_rad_s: velocity,
+      }),
+    );
+  };
+
+  const gripperIntent = () => {
+    if (!session) return;
+    const position = Number(intentGripperPosition);
+    const duration = Number(intentGripperDuration);
+    const velocity = Number(intentGripperVelocity);
+    if (!intentLease.trim()) {
+      setIntentError("需要系统层签发的 lease ID");
+      return;
+    }
+    if (
+      !Number.isFinite(position) ||
+      !Number.isFinite(duration) ||
+      !Number.isFinite(velocity) ||
+      duration <= 0 ||
+      velocity <= 0
+    ) {
+      setIntentError("位置/时长/速度必须是有效数字，时长和速度需大于 0");
+      return;
+    }
+    void runIntent(() =>
+      api.sessionIntentGripper({
+        session_id: session.session_id,
+        lease_id: intentLease.trim(),
+        position_rad: position,
+        duration_s: duration,
+        max_velocity_rad_s: velocity,
+      }),
+    );
   };
 
   useEffect(() => {
@@ -579,6 +673,152 @@ export function DiagnosticsPage() {
                 <br />
                 哈希：<span className="mono">{sessionExport.hash}</span>
               </p>
+            )}
+            {session.state === "authorized" && (
+              <div className="intent-panel">
+                <h3 className="card-title">M2b 关节 / 夹爪意图</h3>
+                <p className="footnote">
+                  lease ID 必须由系统层签发；Studio 不申请、不持有 lease，校验与执行都由系统网关完成。这不是急停。
+                </p>
+                <label className="field">
+                  <span>系统层 lease ID</span>
+                  <input
+                    className="input"
+                    value={intentLease}
+                    onChange={(event) => setIntentLease(event.target.value)}
+                    maxLength={128}
+                  />
+                </label>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>关节</span>
+                    <select
+                      className="input"
+                      value={intentJoint || robot?.joints[0]?.name || ""}
+                      onChange={(event) => setIntentJoint(event.target.value)}
+                    >
+                      {(robot?.joints ?? []).map((joint) => (
+                        <option key={joint.name} value={joint.name}>
+                          {joint.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>目标 (rad)</span>
+                    <input
+                      className="input"
+                      value={intentTarget}
+                      onChange={(event) => setIntentTarget(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>时长 (s)</span>
+                    <input
+                      className="input"
+                      value={intentDuration}
+                      onChange={(event) => setIntentDuration(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>最大速度 (rad/s)</span>
+                    <input
+                      className="input"
+                      value={intentVelocity}
+                      onChange={(event) => setIntentVelocity(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="button-row">
+                  <Button
+                    variant="danger"
+                    onClick={jointIntent}
+                    disabled={intentBusy}
+                  >
+                    校验并执行关节
+                  </Button>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>夹爪位置 (rad)</span>
+                    <input
+                      className="input"
+                      value={intentGripperPosition}
+                      onChange={(event) =>
+                        setIntentGripperPosition(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>夹爪时长 (s)</span>
+                    <input
+                      className="input"
+                      value={intentGripperDuration}
+                      onChange={(event) =>
+                        setIntentGripperDuration(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>夹爪速度 (rad/s)</span>
+                    <input
+                      className="input"
+                      value={intentGripperVelocity}
+                      onChange={(event) =>
+                        setIntentGripperVelocity(event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="button-row">
+                  <Button
+                    variant="danger"
+                    onClick={gripperIntent}
+                    disabled={intentBusy}
+                  >
+                    校验并执行夹爪
+                  </Button>
+                </div>
+              </div>
+            )}
+            {intentError && <p className="error-text">{intentError}</p>}
+            {intentResult && (
+              <div className="kv-list">
+                <KeyValue label="校验">
+                  <StatusChip
+                    tone={intentResult.validation.approved ? "ok" : "fault"}
+                    label={
+                      intentResult.validation.approved
+                        ? "approved"
+                        : intentResult.validation.reason_code
+                    }
+                  />
+                </KeyValue>
+                <KeyValue label="结果">
+                  <StatusChip
+                    tone={
+                      intentResult.result.outcome === "COMPLETED"
+                        ? "ok"
+                        : intentResult.result.outcome === "UNKNOWN"
+                          ? "warning"
+                          : "fault"
+                    }
+                    label={intentResult.result.outcome}
+                    detail={intentResult.result.reason_code}
+                  />
+                </KeyValue>
+                <KeyValue label="总线校验">
+                  {intentResult.result.bus_verified ? "是" : "否"}
+                </KeyValue>
+                <KeyValue label="实测位置">
+                  {intentResult.result.measured_positions.length} 个
+                </KeyValue>
+                <KeyValue label="证据">
+                  <span className="mono">
+                    {intentResult.result.evidence_id || "—"}
+                  </span>
+                </KeyValue>
+              </div>
             )}
             <div className="table-wrap">
               <table className="data-table">

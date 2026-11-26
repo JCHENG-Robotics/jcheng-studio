@@ -1,17 +1,18 @@
-# Read-only `/v1` gateway clients — jcheng-studio
+# Gateway clients — jcheng-studio
 
 > Status: **Implemented and verified against mock gateways and the real
 > `jcheng-system` read-only gateway (L2), 2026-11-26.**
-> Version 0.4.0 / milestones M1a (REST) and M1b (WebSocket). No robot was
-> used.
+> Version 0.6.0 / milestones M1a (REST), M1b (WebSocket) and M2b (intent).
+> No robot was used.
 
 ## 1. Purpose
 
-The console reaches the robot only through a `jcheng-system` gateway. These
-clients implement the read-only slice of the published contract in
-`jcheng-interfaces` so the operator can see whether a gateway is reachable,
-which contract it runs and what state/safety it reports — without a lease and
-without a motion path.
+The console reaches the robot only through a `jcheng-system` gateway. The
+read-only clients implement the published contract in `jcheng-interfaces` so
+the operator can see whether a gateway is reachable, which contract it runs and
+what state/safety it reports. The M2b intent client forwards one joint/gripper
+command only after an authorized session and with an **operator-supplied
+system lease**; the Studio never acquires or holds a lease.
 
 ## 2. Surface
 
@@ -19,13 +20,15 @@ without a motion path.
 |---|---|
 | REST transport | HTTP/1.1 over `urllib`; no DDS/RMW, no device, no ROS |
 | WS transport | `websockets` sync client; one `/v1/ws/state` subscription |
+| Intent transport | HTTP POST; `/v1/motion/validate` + `/v1/motion/execute` only |
 | Authentication | `Authorization: Bearer <token>`; only `GET /v1/health` is unauthenticated |
 | REST endpoints | `GET /v1/health`, `/v1/contract`, `/v1/state`, `/v1/safety` |
 | WS endpoint | `GET /v1/ws/state` upgrade; `hello`, then `state` + `safety` at ~10 Hz |
-| Mutation methods | none: no POST, lease, motion, arm, disarm or stop method |
+| Intent endpoints | `POST /v1/motion/validate`, `POST /v1/motion/execute` (Idempotency-Key) |
+| Lease methods | none: the Studio never calls `/v1/leases`; the operator supplies the lease |
 | Contract identity | pinned to `sha256:0b8d72…24b42`; a mismatch is reported and fails closed |
-| Backend routes | `GET /api/gateway/v1/status`, `GET /api/gateway/v1/stream` |
-| UI | Diagnostics → “Gateway v1 · 只读诊断” (refresh + 流探测) |
+| Backend routes | `GET /api/gateway/v1/status`, `GET /api/gateway/v1/stream`; `POST /api/session/intent/joint|gripper` |
+| UI | Diagnostics → “Gateway v1 · 只读诊断” and the “操作会话 · M2” intent panel |
 
 ## 3. Configuration
 
@@ -82,30 +85,53 @@ The `jcheng-system` gateways (both the mock `jcheng_gateway` and the read-only
 - Client ping is answered by the server; the Studio stream client uses the
   `websockets` library, which handles protocol ping/pong.
 
-## 6. Not in this slice
+## 6. Intent client (M2b)
+
+`backend/app/adapters/gateway_v1_intent.py` is a separate POST-only client for
+exactly two endpoints:
+
+1. `POST /v1/motion/validate` with a `MotionCommand`;
+2. `POST /v1/motion/execute` with the same command and an
+   `Idempotency-Key` header.
+
+It is reachable only through `POST /api/session/intent/joint` or
+`/api/session/intent/gripper`, which require an M2a session in the
+`authorized` state. The **operator supplies a lease ID issued by the system
+layer**; the Studio never calls `/v1/leases` and has no lease or stop method.
+The command carries `source=studio:<session>`, the pinned contract, bus
+verification and a measured-state requirement. A validation refusal is
+recorded as `intent_rejected`; an UNKNOWN result is recorded as
+`intent_unknown` and degrades the session. No retry is attempted.
+
+## 7. Not in this slice
 
 - No lease acquisition, renewal, release or revoke.
-- No motion intent or command; no `/cmd_vel`, servo, base or gripper write.
+- No base pulse, trajectory execution or stop endpoint; only one joint step or
+  one gripper command.
 - No `lease`/`motion`/`event` envelope handling beyond validating the generic
   envelope shape; only `hello`/`state`/`safety` are surfaced.
 - No persistent stream recording; the probe is deliberately short.
-- No session record; the M2 session store is still planned.
 - No hardware validation.
 
-## 7. Evidence
+## 8. Evidence
 
 - `backend/tests/test_gateway_v1.py`: 10 REST tests against a loopback mock
   gateway.
 - `backend/tests/test_gateway_v1_stream.py`: 8 WebSocket tests covering
   hello/state/safety, Bearer enforcement, contract mismatch, hello-first,
   bounded reconnect, unreachable gateway and the stream route.
-- [`../evidence/20261126_gateway_v1/`](../evidence/20261126_gateway_v1/README.md)
-  and [`../evidence/20261126_gateway_ws/`](../evidence/20261126_gateway_ws/README.md).
+- `backend/tests/test_gateway_v1_intent.py`: 8 intent tests covering
+  unauthorized refusal, joint/gripper commands, validation rejection, missing
+  lease, UNKNOWN degradation, missing gateway and the absence of lease/stop
+  methods. The mock records every path; no `/v1/leases` call occurs.
+- [`../evidence/20261126_gateway_v1/`](../evidence/20261126_gateway_v1/README.md),
+  [`../evidence/20261126_gateway_ws/`](../evidence/20261126_gateway_ws/README.md)
+  and [`../evidence/20261126_intent/`](../evidence/20261126_intent/README.md).
 - Real interop: the Studio client read `hello → state → safety` from the
   `jcheng-system` read-only gateway on loopback; see
   [`../evidence/20261126_gateway_ws/integration.txt`](../evidence/20261126_gateway_ws/integration.txt).
 
-## 8. Related
+## 9. Related
 
 - [`INTEGRATION.md`](INTEGRATION.md) — gateway contract and failure semantics.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — planes and invariants.

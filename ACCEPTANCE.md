@@ -1,10 +1,10 @@
 # Acceptance report — jcheng-studio
 
-> Status: **pass** as of 2026-11-26 for v0.5.0 (console port + M1a REST +
-> M1b WebSocket + M2a operator sessions).
+> Status: **pass** as of 2026-11-26 for v0.6.0 (console port + M1a REST +
+> M1b WebSocket + M2a sessions + M2b joint/gripper intent).
 > Operator: JerichoCheng. Reviewer: pending.
 > Scope: the ported backend and UI, the read-only `/v1` REST and WebSocket
-> clients, the M2a session store and authorization gate, the offline/mock test
+> clients, the M2a session store and the M2b intent path, the offline/mock test
 > surface and the static boundary. No hardware session was run, no device was
 > opened and no DDS domain was joined.
 > The report is additive: the v0.1.0 scaffold acceptance remains in
@@ -14,15 +14,16 @@
 
 | Gate | Command | Level | Result | Evidence |
 |---|---|---|---|---|
-| Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261126_sessions/gate.txt` |
+| Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261126_intent/gate.txt` |
 | Unit tests (manifest, document set, no-hardware scan) | `python3 -m pytest -q tests` | L1 | pass (13 tests) | `tests/` |
-| Backend suite | `backend/.venv/bin/python -m pytest tests` | L1 | pass (179 passed) | `evidence/20261126_sessions/backend-tests.txt` |
-| Frontend production build | `npm run build` in `frontend/` | L0 | pass | `evidence/20261126_sessions/frontend-build.txt` |
+| Backend suite | `backend/.venv/bin/python -m pytest tests` | L1 | pass (187 passed) | `evidence/20261126_intent/backend-tests.txt` |
+| Frontend production build | `npm run build` in `frontend/` | L0 | pass | `evidence/20261126_intent/frontend-build.txt` |
 | Mock HTTP API | covered by the backend suite | L2 | pass (mock only) | `backend/tests/` |
 | Mock `/v1` REST gateway | `backend/tests/test_gateway_v1.py` | L2 | pass (10 tests) | `evidence/20261126_gateway_v1/` |
 | Mock `/v1/ws/state` stream | `backend/tests/test_gateway_v1_stream.py` | L2 | pass (8 tests) | `evidence/20261126_gateway_ws/` |
 | Real `jcheng-system` read-only gateway WS | loopback integration probe | L2 | pass (hello → state → safety) | `evidence/20261126_gateway_ws/integration.txt` |
 | M2a session lifecycle, authorization gate, seal/export | `backend/tests/test_sessions.py` | L2 | pass (7 tests) | `evidence/20261126_sessions/` |
+| M2b joint/gripper intent validate + execute | `backend/tests/test_gateway_v1_intent.py` | L2 | pass (8 tests) | `evidence/20261126_intent/` |
 | Playwright browser E2E | `npm run test:e2e` | L3 | not run in this port | — |
 | Legacy gateway integration | — | L2/L3 | not exercised | — |
 | Hardware | — | L5 | not applicable; no session authorized | — |
@@ -33,11 +34,11 @@
 | Claim | Level | Evidence |
 |---|---|---|
 | The manifest parses, matches `VERSION`, validates against the v1 schema and pins the v0.1.0 contract hash | L0 | `capability.yaml`; `tests/test_contract.py` |
-| `hardware_access: none`, `safety.class: observer` and an empty ROS runtime surface are declared | L0 | `capability.yaml`; `tests/test_contract.py` |
+| `hardware_access: none`, `safety.class: observer` with `arm`/`gripper` intent scopes and an empty ROS runtime surface are declared | L0 | `capability.yaml`; `tests/test_contract.py` |
 | No device path, DDS/ROS interface, vendor topic, motion service or base-intent topic appears in scanned code, config or scripts | L0 | `tests/test_no_hardware.py` |
 | No model weight, session database, operator env file or oversized file is tracked | L0 | `scripts/check_repo_gate.sh` |
 | The required document set exists and relative links resolve | L0 | `scripts/check_repo_gate.sh` |
-| The ported backend's mock, safety, pose and task paths pass | L1/L2 | 179 passed |
+| The ported backend's mock, safety, pose and task paths pass | L1/L2 | 187 passed |
 | The ported frontend type-checks and builds | L0 | `tsc -b && vite build` |
 | The read-only `/v1` client implements health, contract, state and safety and has no mutation method | L1/L2 | `backend/app/adapters/gateway_v1.py`; `backend/tests/test_gateway_v1.py` |
 | A mock gateway proves unauthenticated health, Bearer enforcement, contract-mismatch rejection, missing-token and unreachable handling | L2 | `backend/tests/test_gateway_v1.py` |
@@ -49,7 +50,10 @@
 | Authorization is refused (and the session degraded) when the gateway status is not ready or the contract does not match | L2 | `backend/tests/test_sessions.py` |
 | A tampered session record is rejected on export; the token and URL credentials are not stored | L2 | `backend/tests/test_sessions.py` |
 | A backend restart closes a session left active | L2 | `backend/tests/test_sessions.py` |
-| The session path has no lease, motion or device call | L0/L2 | `backend/app/sessions/`; `tests/test_no_hardware.py` |
+| An authorized session is required before any intent; the intent carries an operator-supplied system lease | L2 | `backend/tests/test_gateway_v1_intent.py` |
+| The intent client validates the command and submits it to `/v1/motion/validate` and `/v1/motion/execute`; it never calls `/v1/leases` and has no stop method | L2 | `backend/tests/test_gateway_v1_intent.py` |
+| A validation rejection records `intent_rejected`; an UNKNOWN execution records `intent_unknown` and degrades the session | L2 | `backend/tests/test_gateway_v1_intent.py` |
+| The session/intent path has no device or DDS call; the Studio never becomes a lease holder | L0/L2 | `backend/app/sessions/`, `backend/app/adapters/gateway_v1_intent.py`; `tests/test_no_hardware.py` |
 | The ported configs resolve without the baseline workspace | L0 | `configs/takeover.yaml`; `configs/calibration/` |
 | The vendor-derived URDF is not shipped; the visual tests use a project fixture | L0 | `backend/tests/fixtures/armpi_ultra_test.urdf`; `docs/MIGRATION.md` |
 
@@ -57,11 +61,11 @@
 
 | Item | Reason | Risk |
 |---|---|---|
-| M2b console `/v1` joint/gripper intent | Not implemented | No `/v1` motion intent path exists |
+| M2b intent against a real gateway or robot | Mock validate/execute only | Real safety, lease and bus behavior is not exercised |
 | Trajectory inspection and evidence export | No M3 replay from session records | No session can be replayed beyond the raw record |
 | Playwright browser E2E | Not run in this port | UI regressions are not yet caught in CI |
 | Legacy gateway integration | No gateway in this repository | The ported hardware path is unproven here |
-| Lease, deadman and fail-closed behavior on the real gateway | No `/v1` write path | The system layer's behavior is not exercised from the console |
+| Lease acquisition/ownership by the Studio | By design it does not acquire or hold a lease; the operator supplies one | No end-to-end lease UI in this console yet |
 | Hardware behavior | No session, no runtime | Nothing to validate on the robot |
 
 ## 4. Limitations
@@ -69,10 +73,11 @@
 - The repository contains runtime console code, but no robot-side gateway.
   The frozen `ros2_gateway` remains in `jcheng-manipulation` and is not part of
   this repository.
-- The `/v1` REST and WebSocket clients are read-only, and the M2a session path
-  has no motion. They never acquire a lease, renew one, send a motion intent or
-  call a stop endpoint. The stream is a short probe plus a bounded-reconnect
-  reader; it does not persist a live session.
+- The `/v1` REST and WebSocket clients are read-only. M2b forwards one
+  joint/gripper intent through `/v1/motion/validate` and `/v1/motion/execute`,
+  but the operator supplies a system-issued lease and the Studio never
+  acquires, renews, releases or holds one. The stream is a short probe plus a
+  bounded-reconnect reader; it does not persist a live session.
 - The legacy HTTP adapter (`/health`, `X-Armpi-Token`) is retained only to run
   the ported console against an already-deployed frozen gateway. It is not a
   compatibility shim for the `/v1` contract and is not admitted.
