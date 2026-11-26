@@ -22,6 +22,18 @@ DEFAULT_URDF = PROJECT_ROOT / "configs" / "urdf" / "armpi_ultra.xacro"
 DEFAULT_VISUAL_MODEL = PROJECT_ROOT / "configs" / "visual_model.yaml"
 # Runtime event data belongs outside the repository (docs/SESSIONS.md).
 DEFAULT_DB = Path.home() / ".local" / "state" / "armpi-studio" / "studio.db"
+DEFAULT_SESSION_DB = Path.home() / ".local" / "state" / "armpi-studio" / "sessions.db"
+DEFAULT_SESSION_EXPORTS = Path.home() / ".local" / "state" / "armpi-studio" / "exports"
+
+
+def _studio_version() -> str:
+    try:
+        return (PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        return "0.0.0"
+
+
+STUDIO_VERSION = _studio_version()
 
 MOTION_SCOPES = {"step", "pose"}
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
@@ -61,6 +73,11 @@ class Settings:
     api_token: str | None = None
     urdf_path: Path = DEFAULT_URDF
     visual_model_path: Path = DEFAULT_VISUAL_MODEL
+    # M2 operator-session store (outside the repository).
+    session_db_path: Path = DEFAULT_SESSION_DB
+    session_export_dir: Path = DEFAULT_SESSION_EXPORTS
+    studio_version: str = STUDIO_VERSION
+    studio_commit: str | None = None
     api_version: str = "1.0.0"
     schema_version: int = 1
 
@@ -112,6 +129,15 @@ class Settings:
             ) from exc
         if gateway_v1_timeout_s <= 0:
             raise ValueError("ARMPI_GATEWAY_V1_TIMEOUT_S must be positive")
+        session_db_path = Path(
+            os.getenv("ARMPI_SESSION_DB", str(DEFAULT_SESSION_DB))
+        )
+        session_export_dir = Path(
+            os.getenv("ARMPI_SESSION_EXPORTS", str(DEFAULT_SESSION_EXPORTS))
+        )
+        studio_commit = (
+            os.getenv("ARMPI_STUDIO_COMMIT") or os.getenv("STUDIO_COMMIT") or ""
+        ).strip() or None
         ack = (os.getenv("ARMPI_SUPERVISED_MOTION_ACK") or "").strip()
 
         raw_scope = (os.getenv("ARMPI_MOTION_SCOPE", "step") or "step").strip().lower()
@@ -190,6 +216,9 @@ class Settings:
             visual_model_path=Path(
                 os.getenv("ARMPI_VISUAL_MODEL", str(DEFAULT_VISUAL_MODEL))
             ),
+            session_db_path=session_db_path,
+            session_export_dir=session_export_dir,
+            studio_commit=studio_commit,
         )
 
     def load_mapping(self) -> MappingConfig:

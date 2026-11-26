@@ -1,20 +1,20 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.4.0 ports the frozen console
-> backend and UI and implements the read-only `/v1` REST client (health,
-> contract, state, safety) and `/v1/ws/state` subscription. The ported legacy
-> HTTP adapter is documented in section 2. Everything marked M2 remains
-> planned.
+> Status: **Experimental** as of 2026-11-26. v0.5.0 ports the frozen console
+> backend and UI, implements the read-only `/v1` REST and `/v1/ws/state`
+> clients, and adds the M2a operator-session store and authorization gate.
+> The ported legacy HTTP adapter is documented in section 2. M2b (joint/gripper
+> intent) remains planned.
 
 ## 1. Admission and discovery
 
-The system reads `capability.yaml` and checks the admission fields. For v0.4.0
+The system reads `capability.yaml` and checks the admission fields. For v0.5.0
 it finds:
 
 | Field | Value | Meaning |
 |---|---|---|
 | `name` | `jcheng-studio` | application identity |
-| `version` | `0.4.0` | must match `VERSION` |
+| `version` | `0.5.0` | must match `VERSION` |
 | `contract.interfaces` | `>=0.1,<0.2` | pinned contract range |
 | `contract.contract_hash` | `sha256:0b8d72…24b42` | must match the interfaces manifest |
 | `safety.class` | `observer` | read-only HTTP client; no runtime motion object |
@@ -132,7 +132,8 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | v0.2.0 console port | backend tests, frontend build, no-hardware scan; mock API paths only (L0–L2) |
 | v0.3.0 M1a read-only `/v1` | health, contract, state and safety tests against a mock gateway; Bearer, mismatch and unreachable paths (L2) |
 | v0.4.0 M1b WebSocket | subscription, envelope, hello-first and reconnect tests against a mock WebSocket server; loopback interop with the real `jcheng-system` read-only gateway (L2) |
-| M2 session and joint debug | mock gateway proves lease-required, stale-state and fail-closed paths (L3) |
+| v0.5.0 M2a sessions | lifecycle, authorization refusal, seal/export hash, tamper detection, redaction and restart-close tests; no hardware (L2) |
+| M2b joint/gripper intent | mock gateway proves lease-required, stale-state and fail-closed paths (L3) |
 | M3 trajectory inspection | replay of recorded sessions (L4); no robot |
 | M4 supervised hardware | separately authorized L5 session with system limits and stop latch active |
 

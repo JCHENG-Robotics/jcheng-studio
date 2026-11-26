@@ -90,6 +90,20 @@ class StopIn(BaseModel):
     command_id: str | None = Field(default=None, max_length=128)
 
 
+class SessionOpenIn(BaseModel):
+    operator: str = Field(min_length=1, max_length=128)
+    purpose: str = Field(min_length=1, max_length=500)
+    robot_id: str | None = Field(default=None, max_length=128)
+
+
+class SessionIdIn(BaseModel):
+    session_id: str = Field(min_length=1, max_length=128)
+
+
+class SessionReasonIn(SessionIdIn):
+    reason: str = Field(default="operator request", max_length=500)
+
+
 class FaultIn(BaseModel):
     kind: str = Field(min_length=1, max_length=64)
     joint: str | None = Field(default=None, max_length=64)
@@ -177,6 +191,48 @@ def gateway_v1_status(request: Request) -> dict[str, Any]:
 def gateway_v1_stream(request: Request) -> dict[str, Any]:
     """Read a short /v1/ws/state subscription; no lease, no intent."""
     return _service(request).gateway_v1_stream_probe()
+
+
+@router.post("/session/open")
+def session_open(request: Request, body: SessionOpenIn) -> dict[str, Any]:
+    return _service(request).session_open(
+        body.operator, body.purpose, body.robot_id
+    )
+
+
+@router.post("/session/authorize")
+def session_authorize(request: Request, body: SessionIdIn) -> dict[str, Any]:
+    return _service(request).session_authorize(body.session_id)
+
+
+@router.post("/session/degrade")
+def session_degrade(request: Request, body: SessionReasonIn) -> dict[str, Any]:
+    return _service(request).session_degrade(body.session_id, body.reason)
+
+
+@router.post("/session/close")
+def session_close(request: Request, body: SessionReasonIn) -> dict[str, Any]:
+    return _service(request).session_close(body.session_id, body.reason)
+
+
+@router.get("/session/current")
+def session_current(request: Request) -> dict[str, Any]:
+    return _service(request).session_current()
+
+
+@router.get("/session/list")
+def session_list(request: Request, limit: int = Query(default=20, ge=1, le=100)) -> dict[str, Any]:
+    return _service(request).session_list(limit)
+
+
+@router.get("/session/{session_id}/export")
+def session_export(request: Request, session_id: str) -> dict[str, Any]:
+    return _service(request).session_export(session_id)
+
+
+@router.get("/session/{session_id}")
+def session_get(request: Request, session_id: str) -> dict[str, Any]:
+    return _service(request).session_get(session_id)
 
 
 @router.post("/diagnostics/probe")

@@ -1,14 +1,14 @@
 # Operator sessions and records — jcheng-studio
 
-> Status: **Proposed** as of 2026-11-26; to be frozen at M2.
-> No session store, record format or export exists yet. The schema below is the
-> contract the M2 implementation must satisfy.
+> Status: **Frozen (M2a)** as of 2026-11-26. Version 0.5.0.
+> The append-only SQLite store, the authorization gate, the record hash and the
+> export exist. M2a is read-only for robot motion; M2b adds joint/gripper
+> intent. The field set below is the frozen `schema_version: 1` record.
 >
 > **Ported v0.2.0 note:** the backend includes the frozen baseline's SQLite
 > event store (`backend/app/persistence/store.py`). It is a legacy console log
-> for commands and events, not the session store described here. The database
-> path is operator-configured and lives outside git; M2 adds the session store
-> and the authorization gate.
+> for commands and events, not the session store described here. The M2a store
+> is `backend/app/sessions/` and lives outside the repository.
 
 ## 1. Purpose
 
@@ -58,10 +58,9 @@ Rules:
 - The Studio never holds the system's control lease and never claims to. The
   system layer's lease state is displayed as reported, with its age.
 
-## 4. Session record (draft fields)
+## 4. Session record (frozen, `schema_version: 1`)
 
-The storage format is an M2 decision. The field set is the part the store, the
-export and the acceptance report agree on.
+The storage format is SQLite; the field set below is the frozen M2 record.
 
 | Field | Meaning |
 |---|---|
@@ -101,10 +100,12 @@ gateway; the system layer decides.
 
 ## 6. Storage, export and retention
 
-- The session store lives under `~/.local/state/armpi-studio/`, outside this
-  repository. SQLite is the expected format; the decision is M2's.
-- The store is append-only for events. A correction is a new event that
-  references the old one; nothing is silently rewritten.
+- The M2a store is SQLite at `~/.local/state/armpi-studio/sessions.db`
+  (override `ARMPI_SESSION_DB`), outside this repository. Exports go to
+  `~/.local/state/armpi-studio/exports/` (override `ARMPI_SESSION_EXPORTS`).
+- The `session_events` table is append-only. The `sessions` row is a
+  materialized current state; a correction is a new event, nothing is silently
+  rewritten.
 - Exports are self-describing bundles containing the record, its hash and the
   software/contract identity. A bundle with a hash mismatch is rejected.
 - Exports redact the token, SSH paths and unrelated personal data. The gateway
@@ -142,7 +143,25 @@ gateway; the system layer decides.
 - The repository gate rejects a committed store, export or env file.
 - No robot access is used to satisfy these criteria.
 
-## 9. Related
+M2a satisfies the store/lifecycle/export and authorization-refusal criteria.
+The intent criterion remains M2b; M2a has no motion path.
+
+## 9. M2a implementation (2026-11-26)
+
+| Item | Implementation |
+|---|---|
+| Store | `backend/app/sessions/store.py`, SQLite, WAL, append-only `session_events` |
+| Record | `schema_version: 1`; events carry `seq`, `at`, `type`, `provenance`, `payload` |
+| Seal | SHA-256 over canonical JSON of the record (without `record_hash`) |
+| Export | `*.json` bundle with record and hash; a stored-hash mismatch is rejected |
+| API | `POST /api/session/open`, `/authorize`, `/degrade`, `/close`; `GET /current`, `/list`, `/{id}`, `/{id}/export` |
+| Authorization gate | `/api/gateway/v1/status` must be configured, reachable, authenticated, contract-matching, fresh and not stop-latched; otherwise the session is degraded and the request is refused |
+| Restart | The first session access closes any session left active with `backend restart` |
+| Secrets | No token is stored; the gateway URL drops userinfo, query and fragment |
+| Config | `ARMPI_SESSION_DB`, `ARMPI_SESSION_EXPORTS`, `ARMPI_STUDIO_COMMIT` |
+| Tests | `backend/tests/test_sessions.py` (7 tests) |
+
+## 10. Related
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — session states and planes.
 - [`INTEGRATION.md`](INTEGRATION.md) — gateway contract and failure semantics.

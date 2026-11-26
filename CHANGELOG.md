@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-26
+
+### Added
+
+- M2a operator-session store (`backend/app/sessions/store.py`): SQLite outside
+  the repository, append-only events, one active session, a SHA-256 seal and a
+  self-describing JSON export.
+- Authorization gate over the read-only `/v1` status: configured, reachable,
+  authenticated, contract-matching, fresh and not stop-latched; a failed check
+  degrades the session and refuses authorization.
+- Session API: `POST /api/session/open`, `/authorize`, `/degrade`, `/close`;
+  `GET /current`, `/list`, `/{id}`, `/{id}/export`.
+- Diagnostics session card: open, authorize, degrade, close/seal and export.
+- Seven session tests: lifecycle, conflict, authorization refusal, seal/export,
+  tamper detection, token/URL redaction and restart-close.
+- `evidence/20261126_sessions/`.
+
+### Changed
+
+- Version 0.5.0. Backend suite: 179 passed.
+- `docs/SESSIONS.md` is frozen at `schema_version: 1` with the M2a storage and
+  API choices recorded.
+- A backend restart closes a session left active (first session access).
+
+### Not included
+
+- M2b joint/gripper intent through the `/v1` lease/validate/execute path.
+- Any lease or motion authority; the Studio still never holds one.
+
 ## [0.4.0] — 2026-11-26
 
 ### Added

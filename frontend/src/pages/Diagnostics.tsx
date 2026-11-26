@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
-import type { GatewayV1Status, GatewayV1StreamStatus, ProbeResult } from "../api/types";
+import type {
+  GatewayV1Status,
+  GatewayV1StreamStatus,
+  ProbeResult,
+  SessionRecord,
+} from "../api/types";
 import {
   Button,
   Card,
@@ -48,6 +53,16 @@ export function DiagnosticsPage() {
     null,
   );
   const [gatewayV1StreamBusy, setGatewayV1StreamBusy] = useState(false);
+  const [session, setSession] = useState<SessionRecord | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [sessionOperator, setSessionOperator] = useState("");
+  const [sessionPurpose, setSessionPurpose] = useState("");
+  const [sessionReason, setSessionReason] = useState("operator");
+  const [sessionExport, setSessionExport] = useState<{
+    path: string;
+    hash: string;
+  } | null>(null);
 
   const loadGatewayV1 = async () => {
     setGatewayV1Busy(true);
@@ -73,8 +88,73 @@ export function DiagnosticsPage() {
     }
   };
 
+  const loadSession = async () => {
+    setSessionBusy(true);
+    setSessionError(null);
+    try {
+      setSession((await api.sessionCurrent()).session);
+    } catch (caught) {
+      setSessionError(errorText(caught));
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
+  const runSessionAction = async (
+    action: () => Promise<{ session: SessionRecord }>,
+  ) => {
+    setSessionBusy(true);
+    setSessionError(null);
+    try {
+      setSession((await action()).session);
+    } catch (caught) {
+      setSessionError(errorText(caught));
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
+  const openSession = () =>
+    runSessionAction(() =>
+      api.sessionOpen(sessionOperator.trim(), sessionPurpose.trim()),
+    );
+
+  const authorizeSession = () => {
+    if (!session) return;
+    void runSessionAction(() => api.sessionAuthorize(session.session_id));
+  };
+
+  const degradeSession = () => {
+    if (!session) return;
+    void runSessionAction(() =>
+      api.sessionDegrade(session.session_id, sessionReason.trim() || "operator"),
+    );
+  };
+
+  const closeSession = () => {
+    if (!session) return;
+    void runSessionAction(() =>
+      api.sessionClose(session.session_id, sessionReason.trim() || "operator"),
+    );
+  };
+
+  const exportSession = async () => {
+    if (!session) return;
+    setSessionBusy(true);
+    setSessionError(null);
+    try {
+      const exported = await api.sessionExport(session.session_id);
+      setSessionExport({ path: exported.export_path, hash: exported.record_hash });
+    } catch (caught) {
+      setSessionError(errorText(caught));
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
   useEffect(() => {
     void loadGatewayV1();
+    void loadSession();
     // Read once on mount; the operator can refresh explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -342,6 +422,186 @@ export function DiagnosticsPage() {
             <p className="footnote">
               只读：不发送 POST，不持有租约，不发布运动；Token 仅在后端进程内使用。
             </p>
+          </>
+        )}
+      </Card>
+
+      <Card
+        title="操作会话 · M2"
+        subtitle="append-only 记录；授权需 /v1 网关就绪；记录与导出在仓库外"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => void loadSession()}
+            disabled={sessionBusy}
+          >
+            {sessionBusy ? "读取中…" : "刷新"}
+          </Button>
+        }
+      >
+        {sessionError && <p className="error-text">{sessionError}</p>}
+        {!session ? (
+          <>
+            <div className="form-grid">
+              <label className="field">
+                <span>操作员</span>
+                <input
+                  className="input"
+                  value={sessionOperator}
+                  onChange={(event) => setSessionOperator(event.target.value)}
+                  maxLength={128}
+                />
+              </label>
+              <label className="field">
+                <span>目的</span>
+                <input
+                  className="input"
+                  value={sessionPurpose}
+                  onChange={(event) => setSessionPurpose(event.target.value)}
+                  maxLength={500}
+                />
+              </label>
+            </div>
+            <div className="button-row">
+              <Button
+                variant="primary"
+                onClick={() => void openSession()}
+                disabled={
+                  sessionBusy ||
+                  !sessionOperator.trim() ||
+                  !sessionPurpose.trim()
+                }
+              >
+                打开会话
+              </Button>
+            </div>
+            <p className="footnote">
+              每个会话单独授权；Studio 不持有系统租约，也不发送运动。
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="kv-list">
+              <KeyValue label="会话">
+                <span className="mono">{session.session_id}</span>
+              </KeyValue>
+              <KeyValue label="状态">
+                <StatusChip
+                  tone={
+                    session.state === "authorized"
+                      ? "ok"
+                      : session.state === "degraded"
+                        ? "warning"
+                        : session.state === "closed"
+                          ? "neutral"
+                          : "info"
+                  }
+                  label={session.state}
+                />
+              </KeyValue>
+              <KeyValue label="操作员">{session.operator}</KeyValue>
+              <KeyValue label="目的">{session.purpose}</KeyValue>
+              <KeyValue label="契约哈希">
+                <span className="mono" title={session.contract_hash ?? undefined}>
+                  {session.contract_hash
+                    ? `${session.contract_hash.slice(0, 18)}…`
+                    : "—"}
+                </span>
+              </KeyValue>
+              <KeyValue label="记录哈希">
+                <span className="mono" title={session.record_hash ?? undefined}>
+                  {session.record_hash
+                    ? `${session.record_hash.slice(0, 18)}…`
+                    : "未封存"}
+                </span>
+              </KeyValue>
+              <KeyValue label="事件">{session.events.length}</KeyValue>
+              <KeyValue label="关闭原因">{session.close_reason ?? "—"}</KeyValue>
+            </div>
+            <div className="form-grid">
+              <label className="field">
+                <span>原因（降级/关闭）</span>
+                <input
+                  className="input"
+                  value={sessionReason}
+                  onChange={(event) => setSessionReason(event.target.value)}
+                  maxLength={500}
+                />
+              </label>
+            </div>
+            <div className="button-row">
+              <Button
+                variant="primary"
+                onClick={authorizeSession}
+                disabled={
+                  sessionBusy ||
+                  (session.state !== "open" && session.state !== "degraded")
+                }
+              >
+                授权
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={degradeSession}
+                disabled={sessionBusy || session.state === "closed"}
+              >
+                降级
+              </Button>
+              <Button
+                variant="danger"
+                onClick={closeSession}
+                disabled={sessionBusy || session.state === "closed"}
+              >
+                关闭并封存
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void exportSession()}
+                disabled={sessionBusy}
+              >
+                导出
+              </Button>
+              {session.state === "closed" && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSession(null);
+                    setSessionExport(null);
+                  }}
+                >
+                  新建会话
+                </Button>
+              )}
+            </div>
+            {sessionExport && (
+              <p className="footnote">
+                导出：<span className="mono">{sessionExport.path}</span>
+                <br />
+                哈希：<span className="mono">{sessionExport.hash}</span>
+              </p>
+            )}
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>seq</th>
+                    <th>事件</th>
+                    <th>来源</th>
+                    <th>时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {session.events.slice(-8).map((event) => (
+                    <tr key={event.event_id}>
+                      <td className="mono">{event.seq}</td>
+                      <td>{event.type}</td>
+                      <td>{event.provenance}</td>
+                      <td className="mono">{event.at}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </Card>
