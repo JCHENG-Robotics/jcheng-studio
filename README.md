@@ -2,14 +2,15 @@
 
 [简体中文](README.zh-CN.md) | **English**
 
-> Status: **Experimental** as of 2026-11-26. Version 0.6.0.
+> Status: **Experimental** as of 2026-11-26. Version 0.7.0.
 > The frozen ArmPi Debug Studio console has been ported from the
 > `jcheng-manipulation` baseline. The read-only `/v1` REST client
 > (health, contract, state, safety) and `/v1/ws/state` subscription are
 > verified against mock gateways and a real `jcheng-system` read-only gateway.
-> The M2a operator-session store and M2b joint/gripper intent forwarding are
-> implemented; the operator supplies a system-issued lease and the Studio never
-> holds one. The robot-side gateway remains outside this repository, and no
+> The M2a operator-session store, M2b joint/gripper intent forwarding and M3
+> offline session replay are implemented; the operator supplies a system-issued
+> lease and the Studio never holds one. The robot-side gateway remains outside
+> this repository, and no
 > hardware session was run here.
 > English canonical; see [README.zh-CN.md](README.zh-CN.md) for the Chinese translation.
 
@@ -54,6 +55,7 @@ repository's boundary. The complete source and exclusion record is in
 | Read-only `/v1/ws/state` subscription | `backend/app/adapters/gateway_v1_stream.py`; Diagnostics page | M1b complete; mock + real `jcheng-system` gateway verified |
 | M2a operator-session store and authorization gate | `backend/app/sessions/`; Diagnostics page | Complete; SQLite outside git, seal/export tested |
 | M2b joint/gripper intent forwarding | `backend/app/adapters/gateway_v1_intent.py`; Diagnostics page | Complete; operator-supplied lease, mock validate/execute verified |
+| M3 offline session replay and commanded/measured analysis | `backend/app/analysis/session_replay.py`; Diagnostics page | Complete; provenance-labelled replay and hashed export |
 | React/TypeScript console with eight pages | `frontend/` | Ported; production build passes |
 | Joint mapping, pose/task contract and visual model | `configs/` | Ported |
 | Hand-eye calibration used by the task contract | `configs/calibration/` | Ported (2026-11-18 TSAI result) |
@@ -75,7 +77,7 @@ acquires, renews, releases or holds a lease.
 jcheng-studio/
 ├── backend/
 │   ├── app/                     # FastAPI app, adapters, safety core, domain, persistence
-│   └── tests/                   # 187 passed; mock, /v1 REST/WS, session and intent paths
+│   └── tests/                   # 191 passed; REST/WS, session, intent and replay paths
 ├── packages/jcheng_core/        # shared pure-Python stats and point-cloud primitives
 ├── configs/                     # joint mapping, takeover contract, visual model, calibration
 ├── frontend/
@@ -101,6 +103,7 @@ jcheng-studio/
 ├── evidence/20261126_gateway_ws/    # M1b read-only WS client evidence
 ├── evidence/20261126_sessions/      # M2a session store evidence
 ├── evidence/20261126_intent/        # M2b intent evidence
+├── evidence/20261126_replay/        # M3 replay/analysis evidence
 ├── VERSION
 ├── README.md / README.zh-CN.md
 ├── ROADMAP.md / CHANGELOG.md / ACCEPTANCE.md
@@ -161,19 +164,20 @@ domain.
 
 | Claim | Status | Evidence |
 |---|---|---|
-| Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_intent/`](evidence/20261126_intent/README.md) |
-| Backend suite: 187 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_intent/backend-tests.txt`](evidence/20261126_intent/backend-tests.txt) |
+| Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_replay/`](evidence/20261126_replay/README.md) |
+| Backend suite: 191 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_replay/backend-tests.txt`](evidence/20261126_replay/backend-tests.txt) |
 | Read-only `/v1` REST client (health, contract, state, safety) | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1.py`](backend/tests/test_gateway_v1.py); [evidence](evidence/20261126_gateway_v1/README.md) |
 | Read-only `/v1/ws/state` subscription | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1_stream.py`](backend/tests/test_gateway_v1_stream.py); [evidence](evidence/20261126_gateway_ws/README.md) |
 | WS interop with the real `jcheng-system` read-only gateway | Verified (L2, loopback, 2026-11-26) | [`evidence/20261126_gateway_ws/integration.txt`](evidence/20261126_gateway_ws/integration.txt) |
 | M2a session lifecycle, authorization refusal, seal/export hash and redaction | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_sessions.py`](backend/tests/test_sessions.py); [evidence](evidence/20261126_sessions/README.md) |
 | M2b joint/gripper intent validate + execute, lease supplied by operator, no `/v1/leases` call | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1_intent.py`](backend/tests/test_gateway_v1_intent.py); [evidence](evidence/20261126_intent/README.md) |
-| Frontend production build passes | Verified (L0, 2026-11-26) | [`evidence/20261126_intent/frontend-build.txt`](evidence/20261126_intent/frontend-build.txt) |
-| No device path, DDS/ROS interface, vendor topic or motion call appears in scanned code, config or scripts | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py`; [gate record](evidence/20261126_intent/gate.txt) |
+| M3 offline replay keeps commanded and measured separate, computes a joint delta only when the joint order is recorded, and exports a hashed analysis | Verified (L2, offline, 2026-11-26) | [`backend/tests/test_session_replay.py`](backend/tests/test_session_replay.py); [evidence](evidence/20261126_replay/README.md) |
+| Frontend production build passes | Verified (L0, 2026-11-26) | [`evidence/20261126_replay/frontend-build.txt`](evidence/20261126_replay/frontend-build.txt) |
+| No device path, DDS/ROS interface, vendor topic or motion call appears in scanned code, config or scripts | Verified (L0, 2026-11-26) | `tests/test_no_hardware.py`; [gate record](evidence/20261126_replay/gate.txt) |
 | Mock HTTP API paths (preview, execute, peripherals, task plan) | Verified (L2, mock only, 2026-11-26) | `backend/tests/` |
 | Playwright browser E2E | Unverified | Not run in this port |
 | Legacy gateway integration (read-only or motion) | Unverified | The legacy adapter is not exercised here |
-| Trajectory inspection and experiment records (M3) | Not started | M3 roadmap |
+| Hardware acceptance (M4) | Not started | M4 roadmap |
 | Hardware motion | Unverified | No session authorized; no hardware evidence in this repository |
 
 Full report: [ACCEPTANCE.md](ACCEPTANCE.md).

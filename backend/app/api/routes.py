@@ -268,6 +268,16 @@ def session_export(request: Request, session_id: str) -> dict[str, Any]:
     return _service(request).session_export(session_id)
 
 
+@router.get("/session/{session_id}/analysis")
+def session_analysis(request: Request, session_id: str) -> dict[str, Any]:
+    return _service(request).session_analysis(session_id)
+
+
+@router.get("/session/{session_id}/analysis/export")
+def session_analysis_export(request: Request, session_id: str) -> dict[str, Any]:
+    return _service(request).session_analysis_export(session_id)
+
+
 @router.get("/session/{session_id}")
 def session_get(request: Request, session_id: str) -> dict[str, Any]:
     return _service(request).session_get(session_id)

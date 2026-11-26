@@ -8,12 +8,15 @@ The Studio never acquires, renews or releases a lease.
 
 from __future__ import annotations
 
+import json
 import math
+import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 from ..adapters.gateway_v1 import EXPECTED_CONTRACT_HASH
+from ..analysis import SessionAnalysisError, analysis_hash, analyze_session
 from ..adapters.gateway_v1_intent import (
     GatewayV1IntentClient,
     GatewayV1IntentError,
@@ -40,6 +43,14 @@ class SessionOperations:
             task = getattr(self.takeover, "task", None) if self.takeover else None
             if task is not None:
                 calibration["task"] = Path(task.hand_eye_path).name
+            # Measured MotionResult positions follow the profile joint order.
+            # This makes an exported session replayable without the gateway.
+            calibration["joint_order"] = [
+                name for name in self.mapping.joints if name != "r_joint"
+            ]
+            calibration["gripper_joint"] = (
+                "r_joint" if "r_joint" in self.mapping.joints else None
+            )
             store = SessionStore(
                 self.settings.session_db_path,
                 self.settings.session_export_dir,
@@ -151,6 +162,42 @@ class SessionOperations:
             return self._session_store().export(session_id)
         except SessionStoreError as exc:
             raise self._session_failure(exc) from exc
+
+    # ------------------------------------------------------- M3 replay/export
+    def session_analysis(self, session_id: str) -> dict[str, Any]:
+        try:
+            record = self._session_store().get(session_id)
+        except SessionStoreError as exc:
+            raise self._session_failure(exc) from exc
+        try:
+            analysis = analyze_session(record)
+        except SessionAnalysisError as exc:
+            raise ServiceError(exc.code, exc.message, status_code=exc.status_code) from exc
+        return {"analysis": analysis}
+
+    def session_analysis_export(self, session_id: str) -> dict[str, Any]:
+        analysis = self.session_analysis(session_id)["analysis"]
+        digest = analysis_hash(analysis)
+        export_dir = Path(self.settings.session_export_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+        path = export_dir / f"{session_id}_analysis.json"
+        payload = {
+            "schema_version": 1,
+            "session_id": session_id,
+            "analysis_hash": digest,
+            "analysis": analysis,
+        }
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
+        return {
+            "session_id": session_id,
+            "export_path": str(path),
+            "analysis_hash": digest,
+        }
 
     # ------------------------------------------------------- M2b intent path
     def _authorized_session(self, session_id: str) -> dict[str, Any]:

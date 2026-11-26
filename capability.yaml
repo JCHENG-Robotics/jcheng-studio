@@ -2,11 +2,12 @@
 # jcheng-studio is an L4 operator application: the ArmPi Debug Studio console
 # and its backend (JCHENG-Robotics/.github docs/repo-taxonomy.md, layer L4).
 #
-# v0.6.0 adds M2b joint/gripper intent forwarding on top of the M2a session
-# store. The Studio still has no ROS runtime surface: no DDS domain, topic,
-# service or device. The ported legacy HTTP gateway adapter is not a ROS
-# interface and is disabled by default. The empty runtime surface is
-# deliberate: the console must not claim a transport it does not serve.
+# v0.7.0 adds M3 offline session replay and commanded-vs-measured analysis on
+# top of the M2a session store and M2b intent path. The Studio still has no ROS
+# runtime surface: no DDS domain, topic, service or device. The ported legacy
+# HTTP gateway adapter is not a ROS interface and is disabled by default. The
+# empty runtime surface is deliberate: the console must not claim a transport
+# it does not serve.
 #
 # The permanent division of authority is already fixed: the Studio talks to the
 # system gateways over HTTP/WS only, forwards operator *intent*, and never
@@ -16,7 +17,7 @@
 # scopes, not authority. No ROS runtime surface is gained by the /v1 clients.
 schema_version: 1
 name: jcheng-studio
-version: 0.6.0
+version: 0.7.0
 contract:
   interfaces: ">=0.1,<0.2"
   contract_hash: "sha256:0b8d72ced7f54d444d6851d8b99a51a78e2bed3f687324f51a15f76557f24b42"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "armpi-debug-studio-backend"
-version = "0.6.0"
+version = "0.7.0"
 description = "ArmPi Debug Studio console backend (L4 operator console)"
 requires-python = ">=3.11,<3.13"
 # Exact pins: the backend is an application, not a reusable library. The

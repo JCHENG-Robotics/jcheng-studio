@@ -104,6 +104,7 @@ def test_document_set_exists():
         "evidence/20261126_gateway_ws/README.md",
         "evidence/20261126_sessions/README.md",
         "evidence/20261126_intent/README.md",
+        "evidence/20261126_replay/README.md",
     ):
         assert (ROOT / name).is_file(), f"missing {name}"
 

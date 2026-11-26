@@ -1,9 +1,9 @@
 # Operator sessions and records — jcheng-studio
 
-> Status: **Frozen (M2a)** as of 2026-11-26. Version 0.5.0.
-> The append-only SQLite store, the authorization gate, the record hash and the
-> export exist. M2a is read-only for robot motion; M2b adds joint/gripper
-> intent. The field set below is the frozen `schema_version: 1` record.
+> Status: **Frozen (M2/M3)** as of 2026-11-26. Version 0.7.0.
+> The append-only SQLite store, authorization gate, record hash and export
+> exist; M2b adds joint/gripper intent and M3 adds offline replay. The field set
+> below is the frozen `schema_version: 1` record.
 >
 > **Ported v0.2.0 note:** the backend includes the frozen baseline's SQLite
 > event store (`backend/app/persistence/store.py`). It is a legacy console log
@@ -174,6 +174,21 @@ M2b satisfies the intent criterion with an operator-supplied system lease
 | Record | `intent_requested` before the call; `intent_rejected`, `intent_executed` or `intent_unknown` after it; `actions` is derived from these events |
 | Fail closed | Validation refusal does not execute; an UNKNOWN outcome records the event and degrades the session; no retry |
 | Tests | `backend/tests/test_gateway_v1_intent.py` (8 tests); mock gateway only |
+
+### 9.2 M3 replay and analysis (2026-11-26)
+
+| Item | Implementation |
+|---|---|
+| Module | `backend/app/analysis/session_replay.py`; pure Python, offline |
+| Input | One M2a record (open or sealed) with its M2b intent events |
+| Truth labels | `commanded_target_rad` / `command_truth=commanded` and `gateway_measured_positions` / `measurement_truth=measured` stay separate |
+| Delta | Only for `COMPLETED` `JOINT_STEP` and only when calibration has `joint_order`; otherwise `null` with a limitation |
+| Gripper | Arm positions are shown; gripper measured position is marked unavailable (not in `MotionResult`) |
+| Provenance | Studio version/commit, contract hash, robot profile, gateway URL and calibration |
+| API | `GET /api/session/{id}/analysis`, `GET /api/session/{id}/analysis/export` |
+| Export | Self-describing JSON with a SHA-256 `analysis_hash` |
+| UI | Diagnostics → “会话回放 · M3” |
+| Tests | `backend/tests/test_session_replay.py` (4 tests) |
 
 ## 10. Related
 

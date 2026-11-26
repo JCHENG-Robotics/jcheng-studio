@@ -6,6 +6,36 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-26
+
+### Added
+
+- M3 offline session replay (`backend/app/analysis/session_replay.py`): a
+  provenance-labelled analysis of one M2a session record and its M2b intent
+  events.
+- Commanded and gateway-reported measured values are separate fields; a joint
+  delta is computed only for a COMPLETED step and only when the session
+  recorded `joint_order` in calibration. Gripper measured position is marked
+  unavailable instead of guessed.
+- `GET /api/session/{id}/analysis` and `/analysis/export`; the export carries
+  studio version/commit, contract hash and calibration, and an analysis hash.
+- Diagnostics “会话回放 · M3” card: choose a session, analyze, inspect the
+  `commanded`/`measured` table and export the hashed analysis.
+- New sessions record `joint_order`/`gripper_joint` in calibration so a later
+  replay is self-contained.
+- `backend/tests/test_session_replay.py` (4 tests); `evidence/20261126_replay/`.
+
+### Changed
+
+- Version 0.7.0. Backend suite: 191 passed.
+- M3 replay is offline: no gateway, robot or device is contacted.
+
+### Not included
+
+- A bus re-read by the Studio; `measured` remains the gateway MotionResult.
+- A gripper measured delta; the result does not carry it.
+- Hardware acceptance (M4).
+
 ## [0.6.0] — 2026-11-26
 
 ### Added

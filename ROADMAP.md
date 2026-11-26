@@ -1,8 +1,8 @@
 # jcheng-studio roadmap
 
-> Status: **v0.6.0** as of 2026-11-26. The frozen console is ported; the
-> read-only `/v1` REST/WS clients, the M2a operator-session store and the M2b
-> joint/gripper intent path are verified. Hardware acceptance is not
+> Status: **v0.7.0** as of 2026-11-26. The frozen console is ported; the
+> read-only `/v1` REST/WS clients, the M2a session store, the M2b intent path
+> and the M3 offline replay are verified. Hardware acceptance is not
 > implemented.
 
 ## Current state
@@ -12,13 +12,13 @@
 | Admission manifest (`capability.yaml`) | Complete (2026-11-26) | `capability.yaml`; `tests/test_contract.py` |
 | Repository scaffold, gate and CI | Complete (2026-11-26) | `scripts/check_repo_gate.sh`; CI `studio-gate` |
 | Console port (backend, UI, configs, tools) | Complete (2026-11-26) | `backend/tests/`; `frontend/`; [`docs/MIGRATION.md`](docs/MIGRATION.md) |
-| Mock HTTP API and offline validation | Complete (2026-11-26) | 187 passed; `evidence/20261126_intent/` |
+| Mock HTTP API and offline validation | Complete (2026-11-26) | 191 passed; `evidence/20261126_replay/` |
 | Read-only `/v1` REST client (health, contract, state, safety) | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1.py`](backend/app/adapters/gateway_v1.py); [`docs/GATEWAY_V1.md`](docs/GATEWAY_V1.md) |
 | Read-only `/v1/ws/state` subscription (M1b) | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1_stream.py`](backend/app/adapters/gateway_v1_stream.py); `evidence/20261126_gateway_ws/` |
 | Diagnostics page wired to `/api/gateway/v1/status` and `/api/gateway/v1/stream` | Complete (2026-11-26) | `frontend/src/pages/Diagnostics.tsx` |
 | M2a operator session store and authorization gate | Complete (2026-11-26) | [`backend/app/sessions/store.py`](backend/app/sessions/store.py); [`docs/SESSIONS.md`](docs/SESSIONS.md); `evidence/20261126_sessions/` |
 | M2b console `/v1` joint/gripper intent | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1_intent.py`](backend/app/adapters/gateway_v1_intent.py); `evidence/20261126_intent/` |
-| Trajectory inspection and evidence export | Planned | — |
+| M3 offline session replay and commanded/measured analysis | Complete (2026-11-26) | [`backend/app/analysis/session_replay.py`](backend/app/analysis/session_replay.py); `evidence/20261126_replay/` |
 | Playwright browser E2E in CI | Planned | Ported specs; not run here |
 | Hardware acceptance | Not started | — |
 
@@ -32,15 +32,15 @@
 | M1b | `/v1` WebSocket subscription | Complete (2026-11-26) | One subscription validates `jcheng-ws.v1.json` envelopes, requires hello first, reconnects with bounded backoff and sends no intent; mock and real read-only gateways verified; no hardware | `evidence/20261126_gateway_ws/` |
 | M2a | Operator session store and authorization gate | Complete (2026-11-26) | A session record is opened, degraded, closed and exported with a verified hash; authorization refusal, tamper detection, redaction and restart-close are proven against a mock `/v1` status; no hardware | `evidence/20261126_sessions/` |
 | M2b | Console `/v1` joint/gripper intent | Complete (2026-11-26) | One operator intent is validated and submitted through `/v1/motion/validate` and `/v1/motion/execute` with an **operator-supplied system lease**; the Studio never calls `/v1/leases`; refusal and UNKNOWN outcomes are recorded and fail closed; mock gateway only, no hardware | `evidence/20261126_intent/` |
-| M3 | Trajectory inspection and experiment records | Planned | Recorded sessions replay offline (L4); commanded and measured values are compared without relabelling; exports carry versions, contract hash and calibration identifiers | — |
+| M3 | Trajectory inspection and experiment records | Complete (2026-11-26) | Recorded sessions replay offline; commanded and measured values stay separate; a joint delta is computed only when the session recorded the joint order; exports carry versions, contract hash and calibration identifiers and a verified analysis hash | `evidence/20261126_replay/` |
 | M4 | Supervised hardware acceptance | Planned | Every motion session is separately authorized; the system layer applies the lease, limits and stop latch; L5 evidence is recorded alongside the system layer's own | — |
 
 ## Next
 
-1. **M3 — trajectory inspection and experiment records.** Replay M2a session
-   records and M2b intent results offline; compare commanded and measured
-   values without relabelling; carry versions, contract hash and calibration
-   identifiers in exports. No robot.
+1. **M4 — supervised hardware acceptance.** Run a separately authorized
+   session against the real system gateway: the operator supplies the lease,
+   the system layer applies limits/deadman/stop latch, and the Studio records
+   L5 evidence alongside the system layer's own. Never from CI or unattended.
 2. **Gateway disposition — decided 2026-11-26.** The frozen DDS
    `ros2_gateway` is not ported into this repository; `jcheng-system`'s `/v1`
    gateway is the target. The legacy HTTP adapter and the legacy G7/G8 runners

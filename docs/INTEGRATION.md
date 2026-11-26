@@ -1,19 +1,20 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.6.0 ports the frozen console
+> Status: **Experimental** as of 2026-11-26. v0.7.0 ports the frozen console
 > backend and UI, implements the read-only `/v1` REST and `/v1/ws/state`
-> clients, the M2a operator-session store and the M2b joint/gripper intent
-> path. The ported legacy HTTP adapter is documented in section 2.
+> clients, the M2a operator-session store, the M2b joint/gripper intent path
+> and the M3 offline replay. The ported legacy HTTP adapter is documented in
+> section 2.
 
 ## 1. Admission and discovery
 
-The system reads `capability.yaml` and checks the admission fields. For v0.6.0
+The system reads `capability.yaml` and checks the admission fields. For v0.7.0
 it finds:
 
 | Field | Value | Meaning |
 |---|---|---|
 | `name` | `jcheng-studio` | application identity |
-| `version` | `0.6.0` | must match `VERSION` |
+| `version` | `0.7.0` | must match `VERSION` |
 | `contract.interfaces` | `>=0.1,<0.2` | pinned contract range |
 | `contract.contract_hash` | `sha256:0b8d72…24b42` | must match the interfaces manifest |
 | `safety.class` | `observer` | intent forwarder; the system layer executes motion |
@@ -134,7 +135,7 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | v0.4.0 M1b WebSocket | subscription, envelope, hello-first and reconnect tests against a mock WebSocket server; loopback interop with the real `jcheng-system` read-only gateway (L2) |
 | v0.5.0 M2a sessions | lifecycle, authorization refusal, seal/export hash, tamper detection, redaction and restart-close tests; no hardware (L2) |
 | v0.6.0 M2b intent | mock `/v1/motion/validate` + `/execute`; operator-supplied lease; unauthorized, rejected, missing-lease and UNKNOWN paths; no `/v1/leases` call (L2) |
-| M3 trajectory inspection | replay of recorded sessions (L4); no robot |
+| v0.7.0 M3 replay | offline session analysis; commanded/measured separate; delta only with a recorded joint order; hashed export with provenance (L2/L4) |
 | M4 supervised hardware | separately authorized L5 session with system limits and stop latch active |
 
 No hardware claim is valid before M4. Synthetic, mock and replay results are

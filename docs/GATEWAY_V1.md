@@ -2,7 +2,8 @@
 
 > Status: **Implemented and verified against mock gateways and the real
 > `jcheng-system` read-only gateway (L2), 2026-11-26.**
-> Version 0.6.0 / milestones M1a (REST), M1b (WebSocket) and M2b (intent).
+> Version 0.7.0 / milestones M1a (REST), M1b (WebSocket) and M2b (intent);
+> M3 replay is documented in [`SESSIONS.md`](SESSIONS.md).
 > No robot was used.
 
 ## 1. Purpose

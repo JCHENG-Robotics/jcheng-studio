@@ -4,8 +4,10 @@ import type {
   GatewayV1Status,
   GatewayV1StreamStatus,
   ProbeResult,
+  SessionAnalysis,
   SessionIntentResult,
   SessionRecord,
+  SessionSummary,
 } from "../api/types";
 import {
   Button,
@@ -77,6 +79,17 @@ export function DiagnosticsPage() {
   );
   const [intentError, setIntentError] = useState<string | null>(null);
   const [intentBusy, setIntentBusy] = useState(false);
+  const [replaySessions, setReplaySessions] = useState<SessionSummary[]>([]);
+  const [replaySessionId, setReplaySessionId] = useState("");
+  const [replayAnalysis, setReplayAnalysis] = useState<SessionAnalysis | null>(
+    null,
+  );
+  const [replayError, setReplayError] = useState<string | null>(null);
+  const [replayBusy, setReplayBusy] = useState(false);
+  const [replayExport, setReplayExport] = useState<{
+    path: string;
+    hash: string;
+  } | null>(null);
 
   const loadGatewayV1 = async () => {
     setGatewayV1Busy(true);
@@ -246,9 +259,55 @@ export function DiagnosticsPage() {
     );
   };
 
+  const loadReplaySessions = async () => {
+    try {
+      const payload = await api.sessionList(50);
+      setReplaySessions(payload.sessions);
+      if (!replaySessionId && payload.sessions.length > 0) {
+        setReplaySessionId(payload.sessions[0].session_id);
+      }
+    } catch (caught) {
+      setReplayError(errorText(caught));
+    }
+  };
+
+  const loadReplayAnalysis = async () => {
+    if (!replaySessionId) return;
+    setReplayBusy(true);
+    setReplayError(null);
+    setReplayExport(null);
+    try {
+      setReplayAnalysis(
+        (await api.sessionAnalysis(replaySessionId)).analysis,
+      );
+    } catch (caught) {
+      setReplayError(errorText(caught));
+    } finally {
+      setReplayBusy(false);
+    }
+  };
+
+  const exportReplayAnalysis = async () => {
+    if (!replaySessionId || !replayAnalysis) return;
+    setReplayBusy(true);
+    setReplayError(null);
+    try {
+      const exported = await api.sessionAnalysisExport(replaySessionId);
+      setReplayExport({
+        path: exported.export_path,
+        hash: exported.analysis_hash,
+      });
+    } catch (caught) {
+      setReplayError(errorText(caught));
+    } finally {
+      setReplayBusy(false);
+    }
+  };
+
   useEffect(() => {
     void loadGatewayV1();
     void loadSession();
+    void loadReplaySessions();
     // Read once on mount; the operator can refresh explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -842,6 +901,188 @@ export function DiagnosticsPage() {
                 </tbody>
               </table>
             </div>
+          </>
+        )}
+      </Card>
+
+      <Card
+        title="会话回放 · M3"
+        subtitle="离线分析；commanded 与 measured 分开；不接触机器人"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => void loadReplaySessions()}
+            disabled={replayBusy}
+          >
+            刷新列表
+          </Button>
+        }
+      >
+        <div className="form-grid">
+          <label className="field">
+            <span>会话</span>
+            <select
+              className="input"
+              value={replaySessionId}
+              onChange={(event) => {
+                setReplaySessionId(event.target.value);
+                setReplayAnalysis(null);
+                setReplayExport(null);
+              }}
+            >
+              <option value="">选择会话…</option>
+              {replaySessions.map((item) => (
+                <option key={item.session_id} value={item.session_id}>
+                  {item.session_id} · {item.operator} · {item.state}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="button-row">
+          <Button
+            variant="primary"
+            onClick={() => void loadReplayAnalysis()}
+            disabled={replayBusy || !replaySessionId}
+          >
+            分析
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void exportReplayAnalysis()}
+            disabled={replayBusy || !replayAnalysis}
+          >
+            导出分析
+          </Button>
+        </div>
+        {replayError && <p className="error-text">{replayError}</p>}
+        {replayExport && (
+          <p className="footnote">
+            导出：<span className="mono">{replayExport.path}</span>
+            <br />
+            哈希：<span className="mono">{replayExport.hash}</span>
+          </p>
+        )}
+        {!replayAnalysis && !replayError && (
+          <EmptyState title="尚未分析">选择会话后点击“分析”。</EmptyState>
+        )}
+        {replayAnalysis && (
+          <>
+            <div className="kv-list">
+              <KeyValue label="会话">
+                <span className="mono">
+                  {replayAnalysis.session.session_id}
+                </span>
+              </KeyValue>
+              <KeyValue label="状态">
+                <StatusChip
+                  tone={
+                    replayAnalysis.session.state === "closed"
+                      ? "neutral"
+                      : replayAnalysis.session.state === "degraded"
+                        ? "warning"
+                        : "ok"
+                  }
+                  label={replayAnalysis.session.state}
+                />
+              </KeyValue>
+              <KeyValue label="操作员">
+                {replayAnalysis.session.operator}
+              </KeyValue>
+              <KeyValue label="目的">{replayAnalysis.session.purpose}</KeyValue>
+              <KeyValue label="时长">
+                {replayAnalysis.session.duration_s === null
+                  ? "—"
+                  : `${replayAnalysis.session.duration_s} s`}
+              </KeyValue>
+              <KeyValue label="契约哈希">
+                <span className="mono">
+                  {replayAnalysis.provenance.contract_hash
+                    ? `${replayAnalysis.provenance.contract_hash.slice(0, 18)}…`
+                    : "—"}
+                </span>
+              </KeyValue>
+              <KeyValue label="记录哈希">
+                <span className="mono">
+                  {replayAnalysis.session.record_hash
+                    ? `${replayAnalysis.session.record_hash.slice(0, 18)}…`
+                    : "未封存"}
+                </span>
+              </KeyValue>
+              <KeyValue label="标定">
+                {String(
+                  replayAnalysis.provenance.calibration.camera ?? "—",
+                )}
+              </KeyValue>
+              <KeyValue label="intent / completed / rejected / unknown">
+                {`${replayAnalysis.summary.intent_count} / ${replayAnalysis.summary.completed} / ${replayAnalysis.summary.rejected} / ${replayAnalysis.summary.unknown}`}
+              </KeyValue>
+              <KeyValue label="最大 |Δ|">
+                {replayAnalysis.summary.max_abs_delta_rad === null
+                  ? "—"
+                  : `${replayAnalysis.summary.max_abs_delta_rad} rad`}
+              </KeyValue>
+            </div>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>kind</th>
+                    <th>关节</th>
+                    <th>commanded</th>
+                    <th>measured</th>
+                    <th>Δ</th>
+                    <th>status</th>
+                    <th>bus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {replayAnalysis.intents.map((item, index) => (
+                    <tr key={`${item.intent_id}-${index}`}>
+                      <td>{item.kind ?? "—"}</td>
+                      <td className="mono">
+                        {item.joint ?? item.gripper_joint ?? "—"}
+                      </td>
+                      <td className="mono">
+                        {item.commanded_target_rad === null
+                          ? "—"
+                          : item.commanded_target_rad.toFixed(4)}
+                      </td>
+                      <td className="mono">
+                        {item.measured_joint_rad === null
+                          ? "—"
+                          : item.measured_joint_rad.toFixed(4)}
+                      </td>
+                      <td className="mono">
+                        {item.delta_rad === null
+                          ? "—"
+                          : item.delta_rad.toFixed(4)}
+                      </td>
+                      <td>
+                        <StatusChip
+                          tone={
+                            item.status === "COMPLETED"
+                              ? "ok"
+                              : item.status === "UNKNOWN"
+                                ? "warning"
+                                : item.status === "pending"
+                                  ? "info"
+                                  : "fault"
+                          }
+                          label={item.status}
+                        />
+                      </td>
+                      <td>{item.result?.bus_verified ? "是" : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="footnote">
+              commanded 是命令目标；measured 是网关 MotionResult 的
+              measured_positions，本控制台没有重新读总线。
+              {replayAnalysis.limitations.join(" ")}
+            </p>
           </>
         )}
       </Card>

@@ -19,9 +19,12 @@ import type {
   ProbeResult,
   RobotState,
   SafetyReport,
+  SessionAnalysis,
+  SessionAnalysisExport,
   SessionExport,
   SessionIntentResult,
   SessionRecord,
+  SessionSummary,
   StopResult,
   TargetPayload,
   TaskPlan,
@@ -236,6 +239,25 @@ export const api = {
   },
   async sessionExport(sessionId: string): Promise<SessionExport> {
     return request<SessionExport>(`/api/session/${sessionId}/export`);
+  },
+  async sessionList(limit = 20): Promise<{ sessions: SessionSummary[] }> {
+    return request<{ sessions: SessionSummary[] }>(
+      `/api/session/list?limit=${limit}`,
+    );
+  },
+  async sessionAnalysis(
+    sessionId: string,
+  ): Promise<{ analysis: SessionAnalysis }> {
+    return request<{ analysis: SessionAnalysis }>(
+      `/api/session/${sessionId}/analysis`,
+    );
+  },
+  async sessionAnalysisExport(
+    sessionId: string,
+  ): Promise<SessionAnalysisExport> {
+    return request<SessionAnalysisExport>(
+      `/api/session/${sessionId}/analysis/export`,
+    );
   },
   async sessionIntentJoint(input: {
     session_id: string;

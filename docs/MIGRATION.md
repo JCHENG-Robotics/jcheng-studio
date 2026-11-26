@@ -73,7 +73,7 @@ uncommitted changes and evidence remain addressable.
 | Check | Result | Level |
 |---|---|---|
 | `python3 -m pytest -q tests` (manifest, document set, static no-hardware scan) | pass | L0 |
-| `backend/.venv/bin/python -m pytest backend/tests` | 187 passed | L1 |
+| `backend/.venv/bin/python -m pytest backend/tests` | 191 passed | L1 |
 | `npm run build` in `frontend/` | pass | L0 |
 | `bash scripts/check_repo_gate.sh` | pass | L0 |
 | Mock HTTP API paths (preview, execute, peripherals, task plan) | covered by the backend suite | L2 (mock) |
@@ -81,6 +81,7 @@ uncommitted changes and evidence remain addressable.
 | Read-only `/v1/ws/state` subscription | 8 mock-WebSocket tests; hello-first, contract, auth and reconnect paths; real system gateway interop | L2 (mock + loopback) |
 | M2a operator sessions | 7 tests: lifecycle, refusal, seal/export, tamper, redaction, restart | L2 (mock) |
 | M2b joint/gripper intent | 8 tests: authorized session, operator lease, validate/execute, rejection, UNKNOWN, no `/v1/leases` | L2 (mock) |
+| M3 offline replay | 4 tests: truth separation, delta rule, summary, hashed export | L2 (offline) |
 | Playwright browser E2E | not run in this port | Unverified |
 | Legacy gateway integration | not exercised here | Unverified |
 | Hardware motion | no session authorized | Unverified |
@@ -89,7 +90,8 @@ Evidence: [`evidence/20261126_console_port/`](../evidence/20261126_console_port/
 [`evidence/20261126_gateway_v1/`](../evidence/20261126_gateway_v1/README.md),
 [`evidence/20261126_gateway_ws/`](../evidence/20261126_gateway_ws/README.md),
 [`evidence/20261126_sessions/`](../evidence/20261126_sessions/README.md)
-and [`evidence/20261126_intent/`](../evidence/20261126_intent/README.md).
+and [`evidence/20261126_intent/`](../evidence/20261126_intent/README.md)
+and [`evidence/20261126_replay/`](../evidence/20261126_replay/README.md).
 
 ## 6. Follow-ups
 
@@ -103,9 +105,12 @@ and [`evidence/20261126_intent/`](../evidence/20261126_intent/README.md).
    outside git, append-only events, authorization gate, seal/export and
    restart-close; plus one joint/gripper intent through
    `/v1/motion/validate` and `/v1/motion/execute` with an operator-supplied
-   system lease. The Studio never acquires or holds a lease. **M3 — trajectory
-   inspection and experiment records** remains.
-3. **Gateway disposition — decided 2026-11-26.** `jcheng-system`'s `/v1`
+   system lease. The Studio never acquires or holds a lease.
+3. **M3 — offline replay (complete 2026-11-26).** Sessions replay offline with
+   `commanded` and gateway `measured` values separated, a delta only when the
+   joint order was recorded, and a hashed provenance export. **M4 — supervised
+   hardware acceptance** remains.
+4. **Gateway disposition — decided 2026-11-26.** `jcheng-system`'s `/v1`
    gateway is the target; the frozen `ros2_gateway` is not ported into this
    repository. The legacy adapter/runners remain transitional, disabled by
    default and not admitted. Task/takeover endpoints the console still needs
