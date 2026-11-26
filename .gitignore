@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+install/
+log/
+*.egg-info/
+.venv/
+.DS_Store
+
+# Studio session databases, exports and recordings live outside the repository.
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.jsonl
+datasets/
+models/
+*.pt
+*.onnx
+*.engine
+*_openvino_model/
+*.bag
+*.mcap
+*.db3
+*.mp4
+*.avi
+
+# Operator configuration: gateway URL and token stay in ~/.config/armpi-studio/.
+*.env
