@@ -262,6 +262,34 @@ export interface SessionExport {
   record_hash: string;
 }
 
+export interface IntentValidation {
+  approved: boolean;
+  reason_code: string;
+  violations: string[];
+  report?: Record<string, unknown>;
+  validation_id?: string;
+  expires_at?: string;
+}
+
+export interface IntentMotionResult {
+  intent_id: string;
+  outcome: string;
+  reason_code: string;
+  message: string;
+  safety: Record<string, unknown>;
+  measured_positions: number[];
+  bus_verified: boolean;
+  calibration_invalidated: boolean;
+  completed_at: string;
+  evidence_id: string;
+}
+
+export interface SessionIntentResult {
+  session_id: string;
+  validation: IntentValidation;
+  result: IntentMotionResult;
+}
+
 export interface EventRecord {
   seq: number;
   event_id: string;
