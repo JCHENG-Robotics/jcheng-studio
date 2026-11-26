@@ -1,9 +1,9 @@
 # Operator sessions and records — jcheng-studio
 
-> Status: **Frozen (M2a)** as of 2026-11-26. Version 0.5.0.
-> The append-only SQLite store, the authorization gate, the record hash and the
-> export exist. M2a is read-only for robot motion; M2b adds joint/gripper
-> intent. The field set below is the frozen `schema_version: 1` record.
+> Status: **Frozen (M2/M3)** as of 2026-11-26. Version 0.7.0.
+> The append-only SQLite store, authorization gate, record hash and export
+> exist; M2b adds joint/gripper intent and M3 adds offline replay. The field set
+> below is the frozen `schema_version: 1` record.
 >
 > **Ported v0.2.0 note:** the backend includes the frozen baseline's SQLite
 > event store (`backend/app/persistence/store.py`). It is a legacy console log
@@ -91,7 +91,7 @@ never re-labelled as a measurement.
 |---|---|---|
 | Read-only | Health, contract, state, safety, event history | A reachable gateway; no authorization |
 | Diagnostic | Refresh a stream, re-read the contract, open the local log | An open session record; no motion |
-| Intent | Any action that can move the arm, gripper or base | An authorized session **and** the system layer's lease, deadman and limits |
+| Intent | One joint step or one gripper command (M2b) | An authorized session **and** an operator-supplied lease issued by the system layer |
 | Export | Write a session record or experiment bundle | A sealed or open record; redaction applied |
 
 The Studio has no class that writes a device, executes a trajectory or changes
@@ -144,7 +144,8 @@ gateway; the system layer decides.
 - No robot access is used to satisfy these criteria.
 
 M2a satisfies the store/lifecycle/export and authorization-refusal criteria.
-The intent criterion remains M2b; M2a has no motion path.
+M2b satisfies the intent criterion with an operator-supplied system lease
+(validate + execute against a mock gateway); no robot is used.
 
 ## 9. M2a implementation (2026-11-26)
 
@@ -160,6 +161,34 @@ The intent criterion remains M2b; M2a has no motion path.
 | Secrets | No token is stored; the gateway URL drops userinfo, query and fragment |
 | Config | `ARMPI_SESSION_DB`, `ARMPI_SESSION_EXPORTS`, `ARMPI_STUDIO_COMMIT` |
 | Tests | `backend/tests/test_sessions.py` (7 tests) |
+
+### 9.1 M2b intent implementation (2026-11-26)
+
+| Item | Implementation |
+|---|---|
+| Client | `backend/app/adapters/gateway_v1_intent.py`; only `/v1/motion/validate` and `/v1/motion/execute` |
+| API | `POST /api/session/intent/joint`, `/api/session/intent/gripper` |
+| Gate | Session must be `authorized`; contract hash must match; lease ID must be supplied by the operator |
+| Lease | The Studio never calls `/v1/leases`; the system layer issues the lease and remains the only motion authority |
+| Command | `JOINT_STEP`/`step` or `GRIPPER`/`gripper`; contract v0.1.0/hash; `verify_bus=true`, `require_measured_state=true` |
+| Record | `intent_requested` before the call; `intent_rejected`, `intent_executed` or `intent_unknown` after it; `actions` is derived from these events |
+| Fail closed | Validation refusal does not execute; an UNKNOWN outcome records the event and degrades the session; no retry |
+| Tests | `backend/tests/test_gateway_v1_intent.py` (8 tests); mock gateway only |
+
+### 9.2 M3 replay and analysis (2026-11-26)
+
+| Item | Implementation |
+|---|---|
+| Module | `backend/app/analysis/session_replay.py`; pure Python, offline |
+| Input | One M2a record (open or sealed) with its M2b intent events |
+| Truth labels | `commanded_target_rad` / `command_truth=commanded` and `gateway_measured_positions` / `measurement_truth=measured` stay separate |
+| Delta | Only for `COMPLETED` `JOINT_STEP` and only when calibration has `joint_order`; otherwise `null` with a limitation |
+| Gripper | Arm positions are shown; gripper measured position is marked unavailable (not in `MotionResult`) |
+| Provenance | Studio version/commit, contract hash, robot profile, gateway URL and calibration |
+| API | `GET /api/session/{id}/analysis`, `GET /api/session/{id}/analysis/export` |
+| Export | Self-describing JSON with a SHA-256 `analysis_hash` |
+| UI | Diagnostics → “会话回放 · M3” |
+| Tests | `backend/tests/test_session_replay.py` (4 tests) |
 
 ## 10. Related
 

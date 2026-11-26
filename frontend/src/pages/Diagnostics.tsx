@@ -4,7 +4,10 @@ import type {
   GatewayV1Status,
   GatewayV1StreamStatus,
   ProbeResult,
+  SessionAnalysis,
+  SessionIntentResult,
   SessionRecord,
+  SessionSummary,
 } from "../api/types";
 import {
   Button,
@@ -60,6 +63,30 @@ export function DiagnosticsPage() {
   const [sessionPurpose, setSessionPurpose] = useState("");
   const [sessionReason, setSessionReason] = useState("operator");
   const [sessionExport, setSessionExport] = useState<{
+    path: string;
+    hash: string;
+  } | null>(null);
+  const [intentLease, setIntentLease] = useState("");
+  const [intentJoint, setIntentJoint] = useState("");
+  const [intentTarget, setIntentTarget] = useState("0");
+  const [intentDuration, setIntentDuration] = useState("1");
+  const [intentVelocity, setIntentVelocity] = useState("0.35");
+  const [intentGripperPosition, setIntentGripperPosition] = useState("0.8");
+  const [intentGripperDuration, setIntentGripperDuration] = useState("2");
+  const [intentGripperVelocity, setIntentGripperVelocity] = useState("0.5");
+  const [intentResult, setIntentResult] = useState<SessionIntentResult | null>(
+    null,
+  );
+  const [intentError, setIntentError] = useState<string | null>(null);
+  const [intentBusy, setIntentBusy] = useState(false);
+  const [replaySessions, setReplaySessions] = useState<SessionSummary[]>([]);
+  const [replaySessionId, setReplaySessionId] = useState("");
+  const [replayAnalysis, setReplayAnalysis] = useState<SessionAnalysis | null>(
+    null,
+  );
+  const [replayError, setReplayError] = useState<string | null>(null);
+  const [replayBusy, setReplayBusy] = useState(false);
+  const [replayExport, setReplayExport] = useState<{
     path: string;
     hash: string;
   } | null>(null);
@@ -152,9 +179,135 @@ export function DiagnosticsPage() {
     }
   };
 
+  const runIntent = async (action: () => Promise<SessionIntentResult>) => {
+    setIntentBusy(true);
+    setIntentError(null);
+    setIntentResult(null);
+    try {
+      setIntentResult(await action());
+      setSession((await api.sessionCurrent()).session);
+    } catch (caught) {
+      setIntentError(errorText(caught));
+      try {
+        setSession((await api.sessionCurrent()).session);
+      } catch {
+        // The session refresh is best effort; the intent error is shown.
+      }
+    } finally {
+      setIntentBusy(false);
+    }
+  };
+
+  const jointIntent = () => {
+    if (!session) return;
+    const target = Number(intentTarget);
+    const duration = Number(intentDuration);
+    const velocity = Number(intentVelocity);
+    if (!intentLease.trim()) {
+      setIntentError("需要系统层签发的 lease ID");
+      return;
+    }
+    if (
+      !Number.isFinite(target) ||
+      !Number.isFinite(duration) ||
+      !Number.isFinite(velocity) ||
+      duration <= 0 ||
+      velocity <= 0
+    ) {
+      setIntentError("目标/时长/速度必须是有效数字，时长和速度需大于 0");
+      return;
+    }
+    void runIntent(() =>
+      api.sessionIntentJoint({
+        session_id: session.session_id,
+        lease_id: intentLease.trim(),
+        joint: intentJoint || robot?.joints[0]?.name || "joint1",
+        target_rad: target,
+        duration_s: duration,
+        max_velocity_rad_s: velocity,
+      }),
+    );
+  };
+
+  const gripperIntent = () => {
+    if (!session) return;
+    const position = Number(intentGripperPosition);
+    const duration = Number(intentGripperDuration);
+    const velocity = Number(intentGripperVelocity);
+    if (!intentLease.trim()) {
+      setIntentError("需要系统层签发的 lease ID");
+      return;
+    }
+    if (
+      !Number.isFinite(position) ||
+      !Number.isFinite(duration) ||
+      !Number.isFinite(velocity) ||
+      duration <= 0 ||
+      velocity <= 0
+    ) {
+      setIntentError("位置/时长/速度必须是有效数字，时长和速度需大于 0");
+      return;
+    }
+    void runIntent(() =>
+      api.sessionIntentGripper({
+        session_id: session.session_id,
+        lease_id: intentLease.trim(),
+        position_rad: position,
+        duration_s: duration,
+        max_velocity_rad_s: velocity,
+      }),
+    );
+  };
+
+  const loadReplaySessions = async () => {
+    try {
+      const payload = await api.sessionList(50);
+      setReplaySessions(payload.sessions);
+      if (!replaySessionId && payload.sessions.length > 0) {
+        setReplaySessionId(payload.sessions[0].session_id);
+      }
+    } catch (caught) {
+      setReplayError(errorText(caught));
+    }
+  };
+
+  const loadReplayAnalysis = async () => {
+    if (!replaySessionId) return;
+    setReplayBusy(true);
+    setReplayError(null);
+    setReplayExport(null);
+    try {
+      setReplayAnalysis(
+        (await api.sessionAnalysis(replaySessionId)).analysis,
+      );
+    } catch (caught) {
+      setReplayError(errorText(caught));
+    } finally {
+      setReplayBusy(false);
+    }
+  };
+
+  const exportReplayAnalysis = async () => {
+    if (!replaySessionId || !replayAnalysis) return;
+    setReplayBusy(true);
+    setReplayError(null);
+    try {
+      const exported = await api.sessionAnalysisExport(replaySessionId);
+      setReplayExport({
+        path: exported.export_path,
+        hash: exported.analysis_hash,
+      });
+    } catch (caught) {
+      setReplayError(errorText(caught));
+    } finally {
+      setReplayBusy(false);
+    }
+  };
+
   useEffect(() => {
     void loadGatewayV1();
     void loadSession();
+    void loadReplaySessions();
     // Read once on mount; the operator can refresh explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -580,6 +733,152 @@ export function DiagnosticsPage() {
                 哈希：<span className="mono">{sessionExport.hash}</span>
               </p>
             )}
+            {session.state === "authorized" && (
+              <div className="intent-panel">
+                <h3 className="card-title">M2b 关节 / 夹爪意图</h3>
+                <p className="footnote">
+                  lease ID 必须由系统层签发；Studio 不申请、不持有 lease，校验与执行都由系统网关完成。这不是急停。
+                </p>
+                <label className="field">
+                  <span>系统层 lease ID</span>
+                  <input
+                    className="input"
+                    value={intentLease}
+                    onChange={(event) => setIntentLease(event.target.value)}
+                    maxLength={128}
+                  />
+                </label>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>关节</span>
+                    <select
+                      className="input"
+                      value={intentJoint || robot?.joints[0]?.name || ""}
+                      onChange={(event) => setIntentJoint(event.target.value)}
+                    >
+                      {(robot?.joints ?? []).map((joint) => (
+                        <option key={joint.name} value={joint.name}>
+                          {joint.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>目标 (rad)</span>
+                    <input
+                      className="input"
+                      value={intentTarget}
+                      onChange={(event) => setIntentTarget(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>时长 (s)</span>
+                    <input
+                      className="input"
+                      value={intentDuration}
+                      onChange={(event) => setIntentDuration(event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>最大速度 (rad/s)</span>
+                    <input
+                      className="input"
+                      value={intentVelocity}
+                      onChange={(event) => setIntentVelocity(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="button-row">
+                  <Button
+                    variant="danger"
+                    onClick={jointIntent}
+                    disabled={intentBusy}
+                  >
+                    校验并执行关节
+                  </Button>
+                </div>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>夹爪位置 (rad)</span>
+                    <input
+                      className="input"
+                      value={intentGripperPosition}
+                      onChange={(event) =>
+                        setIntentGripperPosition(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>夹爪时长 (s)</span>
+                    <input
+                      className="input"
+                      value={intentGripperDuration}
+                      onChange={(event) =>
+                        setIntentGripperDuration(event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    <span>夹爪速度 (rad/s)</span>
+                    <input
+                      className="input"
+                      value={intentGripperVelocity}
+                      onChange={(event) =>
+                        setIntentGripperVelocity(event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="button-row">
+                  <Button
+                    variant="danger"
+                    onClick={gripperIntent}
+                    disabled={intentBusy}
+                  >
+                    校验并执行夹爪
+                  </Button>
+                </div>
+              </div>
+            )}
+            {intentError && <p className="error-text">{intentError}</p>}
+            {intentResult && (
+              <div className="kv-list">
+                <KeyValue label="校验">
+                  <StatusChip
+                    tone={intentResult.validation.approved ? "ok" : "fault"}
+                    label={
+                      intentResult.validation.approved
+                        ? "approved"
+                        : intentResult.validation.reason_code
+                    }
+                  />
+                </KeyValue>
+                <KeyValue label="结果">
+                  <StatusChip
+                    tone={
+                      intentResult.result.outcome === "COMPLETED"
+                        ? "ok"
+                        : intentResult.result.outcome === "UNKNOWN"
+                          ? "warning"
+                          : "fault"
+                    }
+                    label={intentResult.result.outcome}
+                    detail={intentResult.result.reason_code}
+                  />
+                </KeyValue>
+                <KeyValue label="总线校验">
+                  {intentResult.result.bus_verified ? "是" : "否"}
+                </KeyValue>
+                <KeyValue label="实测位置">
+                  {intentResult.result.measured_positions.length} 个
+                </KeyValue>
+                <KeyValue label="证据">
+                  <span className="mono">
+                    {intentResult.result.evidence_id || "—"}
+                  </span>
+                </KeyValue>
+              </div>
+            )}
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
@@ -602,6 +901,188 @@ export function DiagnosticsPage() {
                 </tbody>
               </table>
             </div>
+          </>
+        )}
+      </Card>
+
+      <Card
+        title="会话回放 · M3"
+        subtitle="离线分析；commanded 与 measured 分开；不接触机器人"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => void loadReplaySessions()}
+            disabled={replayBusy}
+          >
+            刷新列表
+          </Button>
+        }
+      >
+        <div className="form-grid">
+          <label className="field">
+            <span>会话</span>
+            <select
+              className="input"
+              value={replaySessionId}
+              onChange={(event) => {
+                setReplaySessionId(event.target.value);
+                setReplayAnalysis(null);
+                setReplayExport(null);
+              }}
+            >
+              <option value="">选择会话…</option>
+              {replaySessions.map((item) => (
+                <option key={item.session_id} value={item.session_id}>
+                  {item.session_id} · {item.operator} · {item.state}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="button-row">
+          <Button
+            variant="primary"
+            onClick={() => void loadReplayAnalysis()}
+            disabled={replayBusy || !replaySessionId}
+          >
+            分析
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void exportReplayAnalysis()}
+            disabled={replayBusy || !replayAnalysis}
+          >
+            导出分析
+          </Button>
+        </div>
+        {replayError && <p className="error-text">{replayError}</p>}
+        {replayExport && (
+          <p className="footnote">
+            导出：<span className="mono">{replayExport.path}</span>
+            <br />
+            哈希：<span className="mono">{replayExport.hash}</span>
+          </p>
+        )}
+        {!replayAnalysis && !replayError && (
+          <EmptyState title="尚未分析">选择会话后点击“分析”。</EmptyState>
+        )}
+        {replayAnalysis && (
+          <>
+            <div className="kv-list">
+              <KeyValue label="会话">
+                <span className="mono">
+                  {replayAnalysis.session.session_id}
+                </span>
+              </KeyValue>
+              <KeyValue label="状态">
+                <StatusChip
+                  tone={
+                    replayAnalysis.session.state === "closed"
+                      ? "neutral"
+                      : replayAnalysis.session.state === "degraded"
+                        ? "warning"
+                        : "ok"
+                  }
+                  label={replayAnalysis.session.state}
+                />
+              </KeyValue>
+              <KeyValue label="操作员">
+                {replayAnalysis.session.operator}
+              </KeyValue>
+              <KeyValue label="目的">{replayAnalysis.session.purpose}</KeyValue>
+              <KeyValue label="时长">
+                {replayAnalysis.session.duration_s === null
+                  ? "—"
+                  : `${replayAnalysis.session.duration_s} s`}
+              </KeyValue>
+              <KeyValue label="契约哈希">
+                <span className="mono">
+                  {replayAnalysis.provenance.contract_hash
+                    ? `${replayAnalysis.provenance.contract_hash.slice(0, 18)}…`
+                    : "—"}
+                </span>
+              </KeyValue>
+              <KeyValue label="记录哈希">
+                <span className="mono">
+                  {replayAnalysis.session.record_hash
+                    ? `${replayAnalysis.session.record_hash.slice(0, 18)}…`
+                    : "未封存"}
+                </span>
+              </KeyValue>
+              <KeyValue label="标定">
+                {String(
+                  replayAnalysis.provenance.calibration.camera ?? "—",
+                )}
+              </KeyValue>
+              <KeyValue label="intent / completed / rejected / unknown">
+                {`${replayAnalysis.summary.intent_count} / ${replayAnalysis.summary.completed} / ${replayAnalysis.summary.rejected} / ${replayAnalysis.summary.unknown}`}
+              </KeyValue>
+              <KeyValue label="最大 |Δ|">
+                {replayAnalysis.summary.max_abs_delta_rad === null
+                  ? "—"
+                  : `${replayAnalysis.summary.max_abs_delta_rad} rad`}
+              </KeyValue>
+            </div>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>kind</th>
+                    <th>关节</th>
+                    <th>commanded</th>
+                    <th>measured</th>
+                    <th>Δ</th>
+                    <th>status</th>
+                    <th>bus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {replayAnalysis.intents.map((item, index) => (
+                    <tr key={`${item.intent_id}-${index}`}>
+                      <td>{item.kind ?? "—"}</td>
+                      <td className="mono">
+                        {item.joint ?? item.gripper_joint ?? "—"}
+                      </td>
+                      <td className="mono">
+                        {item.commanded_target_rad === null
+                          ? "—"
+                          : item.commanded_target_rad.toFixed(4)}
+                      </td>
+                      <td className="mono">
+                        {item.measured_joint_rad === null
+                          ? "—"
+                          : item.measured_joint_rad.toFixed(4)}
+                      </td>
+                      <td className="mono">
+                        {item.delta_rad === null
+                          ? "—"
+                          : item.delta_rad.toFixed(4)}
+                      </td>
+                      <td>
+                        <StatusChip
+                          tone={
+                            item.status === "COMPLETED"
+                              ? "ok"
+                              : item.status === "UNKNOWN"
+                                ? "warning"
+                                : item.status === "pending"
+                                  ? "info"
+                                  : "fault"
+                          }
+                          label={item.status}
+                        />
+                      </td>
+                      <td>{item.result?.bus_verified ? "是" : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="footnote">
+              commanded 是命令目标；measured 是网关 MotionResult 的
+              measured_positions，本控制台没有重新读总线。
+              {replayAnalysis.limitations.join(" ")}
+            </p>
           </>
         )}
       </Card>

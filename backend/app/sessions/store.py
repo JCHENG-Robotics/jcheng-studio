@@ -30,6 +30,10 @@ EVENT_TYPES = {
     "closed",
     "exported",
     "note",
+    "intent_requested",
+    "intent_rejected",
+    "intent_executed",
+    "intent_unknown",
 }
 
 
@@ -282,6 +286,27 @@ class SessionStore:
                 )
             return self.get(session_id)
 
+    def record_intent(
+        self,
+        session_id: str,
+        kind: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        if kind not in {
+            "intent_requested",
+            "intent_rejected",
+            "intent_executed",
+            "intent_unknown",
+        }:
+            raise SessionStoreError("SESSION_INVALID", f"unknown intent event {kind}", status_code=400)
+        with self._lock:
+            conn = self._connection()
+            with conn:
+                row = self._row(conn, session_id)
+                self._require_active(row)
+                self._append_event(conn, session_id, kind, "studio", payload)
+            return self.get(session_id)
+
     def close_session(self, session_id: str, *, reason: str) -> dict[str, Any]:
         with self._lock:
             conn = self._connection()
@@ -460,6 +485,11 @@ class SessionStore:
             elif event["type"] in {"authorized", "closed"} and open_at is not None:
                 degraded_periods.append({"from": open_at, "to": event["at"]})
                 open_at = None
+        actions = [
+            {"type": event["type"], "at": event["at"], "payload": event["payload"]}
+            for event in events
+            if event["type"].startswith("intent_")
+        ]
         return {
             "schema_version": int(row["schema_version"]),
             "session_id": row["session_id"],
@@ -475,7 +505,7 @@ class SessionStore:
             "calibration": json.loads(row["calibration_json"]),
             "state": row["state"],
             "close_reason": row["close_reason"],
-            "actions": [],
+            "actions": actions,
             "degraded_periods": degraded_periods,
             "events": events,
         }

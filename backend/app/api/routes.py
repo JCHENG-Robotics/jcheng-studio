@@ -104,6 +104,21 @@ class SessionReasonIn(SessionIdIn):
     reason: str = Field(default="operator request", max_length=500)
 
 
+class JointIntentIn(SessionIdIn):
+    lease_id: str = Field(min_length=1, max_length=128)
+    joint: str = Field(min_length=1, max_length=64)
+    target_rad: float
+    duration_s: float = Field(default=1.0, gt=0, le=30)
+    max_velocity_rad_s: float = Field(default=0.35, gt=0, le=4.0)
+
+
+class GripperIntentIn(SessionIdIn):
+    lease_id: str = Field(min_length=1, max_length=128)
+    position_rad: float
+    duration_s: float = Field(default=1.0, gt=0, le=30)
+    max_velocity_rad_s: float = Field(default=0.5, gt=0, le=4.0)
+
+
 class FaultIn(BaseModel):
     kind: str = Field(min_length=1, max_length=64)
     joint: str | None = Field(default=None, max_length=64)
@@ -215,6 +230,29 @@ def session_close(request: Request, body: SessionReasonIn) -> dict[str, Any]:
     return _service(request).session_close(body.session_id, body.reason)
 
 
+@router.post("/session/intent/joint")
+def session_intent_joint(request: Request, body: JointIntentIn) -> dict[str, Any]:
+    return _service(request).session_intent_joint(
+        body.session_id,
+        body.lease_id,
+        body.joint,
+        body.target_rad,
+        body.duration_s,
+        body.max_velocity_rad_s,
+    )
+
+
+@router.post("/session/intent/gripper")
+def session_intent_gripper(request: Request, body: GripperIntentIn) -> dict[str, Any]:
+    return _service(request).session_intent_gripper(
+        body.session_id,
+        body.lease_id,
+        body.position_rad,
+        body.duration_s,
+        body.max_velocity_rad_s,
+    )
+
+
 @router.get("/session/current")
 def session_current(request: Request) -> dict[str, Any]:
     return _service(request).session_current()
@@ -228,6 +266,16 @@ def session_list(request: Request, limit: int = Query(default=20, ge=1, le=100))
 @router.get("/session/{session_id}/export")
 def session_export(request: Request, session_id: str) -> dict[str, Any]:
     return _service(request).session_export(session_id)
+
+
+@router.get("/session/{session_id}/analysis")
+def session_analysis(request: Request, session_id: str) -> dict[str, Any]:
+    return _service(request).session_analysis(session_id)
+
+
+@router.get("/session/{session_id}/analysis/export")
+def session_analysis_export(request: Request, session_id: str) -> dict[str, Any]:
+    return _service(request).session_analysis_export(session_id)
 
 
 @router.get("/session/{session_id}")

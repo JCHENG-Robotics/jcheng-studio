@@ -1,25 +1,25 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.5.0 ports the frozen console
+> Status: **Experimental** as of 2026-11-26. v0.7.0 ports the frozen console
 > backend and UI, implements the read-only `/v1` REST and `/v1/ws/state`
-> clients, and adds the M2a operator-session store and authorization gate.
-> The ported legacy HTTP adapter is documented in section 2. M2b (joint/gripper
-> intent) remains planned.
+> clients, the M2a operator-session store, the M2b joint/gripper intent path
+> and the M3 offline replay. The ported legacy HTTP adapter is documented in
+> section 2.
 
 ## 1. Admission and discovery
 
-The system reads `capability.yaml` and checks the admission fields. For v0.5.0
+The system reads `capability.yaml` and checks the admission fields. For v0.7.0
 it finds:
 
 | Field | Value | Meaning |
 |---|---|---|
 | `name` | `jcheng-studio` | application identity |
-| `version` | `0.5.0` | must match `VERSION` |
+| `version` | `0.7.0` | must match `VERSION` |
 | `contract.interfaces` | `>=0.1,<0.2` | pinned contract range |
 | `contract.contract_hash` | `sha256:0b8d72…24b42` | must match the interfaces manifest |
-| `safety.class` | `observer` | read-only HTTP client; no runtime motion object |
-| `safety.scopes` | `[]` | the Studio holds no motion scope |
-| `safety.requires_lease` | `true` | required by the schema; the Studio is never the lease holder |
+| `safety.class` | `observer` | intent forwarder; the system layer executes motion |
+| `safety.scopes` | `["arm", "gripper"]` | intent scopes; the Studio holds no authority |
+| `safety.requires_lease` | `true` | the operator supplies a system-issued lease; the Studio is never the lease holder |
 | `hardware_access` | `none` | hard boundary |
 | `runtime` | empty | no ROS domain, no topics, no services |
 
@@ -42,6 +42,7 @@ no second path: no SSH, no vendor SDK, no ROS topic, no serial device.
 | Contract | `GET /v1/contract` returns the deployed contract identity; a hash mismatch refuses the session |
 | State and safety | `GET /v1/state`, `GET /v1/safety` (M1a); the live stream is `/v1/ws/state` (M1b) |
 | WebSocket | One `/v1/ws/state` subscription using `jcheng-ws.v1.json` (`hello`, `state`, `safety`, `lease`, `motion`, `event`, `ping`, `pong`); `hello`/`state`/`safety` surfaced |
+| Intent (M2b) | `POST /v1/motion/validate` and `/v1/motion/execute` for one joint/gripper command, only in an authorized session and with an operator-supplied system lease; no `/v1/leases` call |
 | Ports | Deployment detail, not contract: `jcheng-system` documents 8766 (supervised) and 8767 (read-only). The Studio reads the configured URL and assumes nothing |
 | Middleware | No DDS, no RMW, no `CYCLONEDDS_URI`. HTTP/WS only |
 
@@ -133,8 +134,8 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | v0.3.0 M1a read-only `/v1` | health, contract, state and safety tests against a mock gateway; Bearer, mismatch and unreachable paths (L2) |
 | v0.4.0 M1b WebSocket | subscription, envelope, hello-first and reconnect tests against a mock WebSocket server; loopback interop with the real `jcheng-system` read-only gateway (L2) |
 | v0.5.0 M2a sessions | lifecycle, authorization refusal, seal/export hash, tamper detection, redaction and restart-close tests; no hardware (L2) |
-| M2b joint/gripper intent | mock gateway proves lease-required, stale-state and fail-closed paths (L3) |
-| M3 trajectory inspection | replay of recorded sessions (L4); no robot |
+| v0.6.0 M2b intent | mock `/v1/motion/validate` + `/execute`; operator-supplied lease; unauthorized, rejected, missing-lease and UNKNOWN paths; no `/v1/leases` call (L2) |
+| v0.7.0 M3 replay | offline session analysis; commanded/measured separate; delta only with a recorded joint order; hashed export with provenance (L2/L4) |
 | M4 supervised hardware | separately authorized L5 session with system limits and stop latch active |
 
 No hardware claim is valid before M4. Synthetic, mock and replay results are

@@ -262,6 +262,118 @@ export interface SessionExport {
   record_hash: string;
 }
 
+export interface IntentValidation {
+  approved: boolean;
+  reason_code: string;
+  violations: string[];
+  report?: Record<string, unknown>;
+  validation_id?: string;
+  expires_at?: string;
+}
+
+export interface IntentMotionResult {
+  intent_id: string;
+  outcome: string;
+  reason_code: string;
+  message: string;
+  safety: Record<string, unknown>;
+  measured_positions: number[];
+  bus_verified: boolean;
+  calibration_invalidated: boolean;
+  completed_at: string;
+  evidence_id: string;
+}
+
+export interface SessionIntentResult {
+  session_id: string;
+  validation: IntentValidation;
+  result: IntentMotionResult;
+}
+
+export interface SessionSummary {
+  schema_version: number;
+  session_id: string;
+  opened_at: string;
+  closed_at: string | null;
+  operator: string;
+  purpose: string;
+  state: string;
+  contract_hash: string | null;
+  close_reason: string | null;
+  record_hash: string | null;
+}
+
+export interface SessionAnalysisIntent {
+  intent_id: string | null;
+  event_type: string;
+  at: string | null;
+  kind: string | null;
+  profile: string | null;
+  joint: string | null;
+  gripper_joint: string | null;
+  commanded_target_rad: number | null;
+  command_truth: string | null;
+  measurement_truth: string | null;
+  measurement_source: string | null;
+  gateway_measured_positions: number[] | null;
+  measured_joint_rad: number | null;
+  delta_rad: number | null;
+  delta_truth: string | null;
+  measurement_note: string | null;
+  validation: IntentValidation | null;
+  result: IntentMotionResult | null;
+  error: Record<string, unknown> | null;
+  lease_id: string | null;
+  source: string | null;
+  contract: Record<string, unknown> | null;
+  status: string;
+}
+
+export interface SessionAnalysis {
+  schema_version: number;
+  session: {
+    session_id: string;
+    schema_version: number | null;
+    operator: string;
+    purpose: string;
+    state: string;
+    opened_at: string;
+    closed_at: string | null;
+    close_reason: string | null;
+    duration_s: number | null;
+    record_hash: string | null;
+  };
+  provenance: {
+    studio_version: string | null;
+    studio_commit: string | null;
+    contract_hash: string | null;
+    robot_profile: string | null;
+    gateway_url: string | null;
+    calibration: Record<string, unknown>;
+  };
+  summary: {
+    intent_count: number;
+    completed: number;
+    rejected: number;
+    aborted: number;
+    unknown: number;
+    pending: number;
+    bus_verified: number;
+    max_abs_delta_rad: number | null;
+    measured_joint_count: number;
+  };
+  intents: SessionAnalysisIntent[];
+  degraded_periods: { from: string; to: string }[];
+  events: SessionEvent[];
+  limitations: string[];
+}
+
+export interface SessionAnalysisExport {
+  session_id: string;
+  export_path: string;
+  analysis_hash: string;
+}
+
 export interface EventRecord {
   seq: number;
   event_id: string;

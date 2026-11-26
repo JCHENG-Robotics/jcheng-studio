@@ -47,7 +47,7 @@ def test_contract_hash_and_ranges():
     assert contract["contract_hash"] == CONTRACT_HASH
 
 
-def test_safety_is_observer_and_scoped_out():
+def test_safety_is_observer_with_intent_scopes():
     safety = MANIFEST["safety"]
     assert set(safety) == {
         "class",
@@ -56,9 +56,9 @@ def test_safety_is_observer_and_scoped_out():
         "max_rate_hz",
         "deadman_ms",
     }
-    # The /v1 client is a read-only HTTP observer; the Studio holds no scope.
+    # The Studio forwards arm/gripper intent; the system layer owns the lease.
     assert safety["class"] == "observer"
-    assert safety["scopes"] == []
+    assert safety["scopes"] == ["arm", "gripper"]
     # Required by the v1 schema; the Studio never becomes a lease holder.
     assert safety["requires_lease"] is True
     assert safety["max_rate_hz"] == 1
@@ -103,6 +103,8 @@ def test_document_set_exists():
         "evidence/20261126_gateway_v1/README.md",
         "evidence/20261126_gateway_ws/README.md",
         "evidence/20261126_sessions/README.md",
+        "evidence/20261126_intent/README.md",
+        "evidence/20261126_replay/README.md",
     ):
         assert (ROOT / name).is_file(), f"missing {name}"
 
