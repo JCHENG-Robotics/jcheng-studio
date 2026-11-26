@@ -6,6 +6,50 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-11-26
+
+### Added
+
+- Ported the frozen ArmPi Debug Studio console from
+  `jcheng-manipulation` (`a08b8b6`, 2026-11-26 working tree):
+  FastAPI backend, React/TypeScript UI, joint/takeover/visual configs, the
+  2026-11-18 hand-eye calibration, operator runners and the G1–G8.1 records.
+- Ported `packages/jcheng_core` (`jcheng_stats`, `jcheng_vision`), the shared
+  pure-Python statistics and point-cloud primitives required by the
+  experiment and task paths.
+- Backend test surface: 154 passed; the mock, safety, pose and task
+  paths run without ROS, a gateway or a device.
+- Frontend production build (`tsc -b && vite build`).
+- Project-authored kinematic fixture for the visual-workbench tests; the
+  vendor-derived URDF is not shipped and is read only from `ARMPI_URDF_PATH`.
+- Loopback-only console launcher (`tools/studio/start_studio.sh`) that stores
+  its database and log under `~/.local/state/armpi-studio/`, reads a token only
+  from an environment variable or a `0600` file, and never uses SSH or ROS.
+- Migration record (`docs/MIGRATION.md`) and legacy document index
+  (`docs/legacy/README.md`) with links to the baseline repository.
+- CI jobs `console-tests` and `frontend-build`, alongside `studio-gate`.
+
+### Changed
+
+- Version 0.2.0. The admission manifest keeps `hardware_access: none`, an
+  empty ROS runtime surface and the v0.1.0 contract hash.
+- Vendor device and topic labels in mock/adapters were replaced with neutral
+  `mock://` and `gateway-*` names; the no-hardware static scan covers the whole
+  tree.
+- The capstone README, Chinese README, roadmap and acceptance report now
+  describe the ported console and its offline verification, not the
+  admission-only scaffold.
+
+### Not included
+
+- `armpi-debug-studio/ros2_gateway/` — a ROS 2/DDS L2 gateway; it stays in the
+  frozen baseline and is not copied into this L4 repository.
+- `data/studio.db` — runtime event data; session databases stay outside git.
+- Hardware evidence bundles and the vendor-derived URDF/xacro.
+- Gateway-coupled converters (`build_g5_dataset.py`,
+  `export_gateway_motion_config.py`); they import the legacy gateway and stay
+  with it.
+
 ## [0.1.0] — 2026-11-26
 
 ### Added

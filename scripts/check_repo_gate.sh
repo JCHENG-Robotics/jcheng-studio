@@ -33,10 +33,20 @@ for f in \
   docs/ARCHITECTURE.md \
   docs/INTEGRATION.md \
   docs/SESSIONS.md \
+  docs/MIGRATION.md \
+  docs/PRD.md \
+  docs/legacy/README.md \
+  backend/pyproject.toml \
+  backend/tests/fixtures/armpi_ultra_test.urdf \
+  packages/jcheng_core/pyproject.toml \
+  frontend/package.json \
+  frontend/package-lock.json \
+  configs/calibration/calibration_table_down_20261118.json \
   tests/test_contract.py \
   tests/test_no_hardware.py \
   scripts/check_repo_gate.sh \
   evidence/20261126_scaffold/README.md \
+  evidence/20261126_console_port/README.md \
   .github/workflows/ci.yml
 do
   require_file "$f"
@@ -52,6 +62,13 @@ fi
 # Operator tokens belong in ~/.config/armpi-studio/studio.env (0600), never git.
 if grep -RIqE \
   --exclude-dir=.git \
+  --exclude-dir=.venv \
+  --exclude-dir=node_modules \
+  --exclude-dir=__pycache__ \
+  --exclude-dir=.pytest_cache \
+  --exclude-dir=dist \
+  --exclude-dir=playwright-report \
+  --exclude-dir=test-results \
   --exclude='check_repo_gate.sh' \
   'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----' \
   . ; then
@@ -60,7 +77,11 @@ if grep -RIqE \
 fi
 
 # No model weights, session databases, recordings or operator env files.
-if find . -path ./.git -prune -o \
+if find . \
+    \( -path ./.git -o -name .venv -o -name node_modules \
+       -o -path ./frontend/dist \
+       -o -path ./frontend/playwright-report -o -path ./frontend/test-results \
+       -o -name __pycache__ -o -name .pytest_cache \) -prune -o \
     \( -name '*.pt' -o -name '*.onnx' -o -name '*.engine' \
        -o -name '*_openvino_model' -o -name '*.bag' -o -name '*.mcap' \
        -o -name '*.db3' -o -name '*.mp4' -o -name '*.avi' \
@@ -80,7 +101,12 @@ for d in datasets models data; do
 done
 
 # No oversized files (catches accidental blobs before they enter history).
-big="$(find . -path ./.git -prune -o -type f -size +5M -print)"
+big="$(find . \
+    \( -path ./.git -o -name .venv -o -name node_modules \
+       -o -path ./frontend/dist \
+       -o -path ./frontend/playwright-report -o -path ./frontend/test-results \
+       -o -name __pycache__ -o -name .pytest_cache \) -prune -o \
+    -type f -size +5M -print)"
 if [[ -n "$big" ]]; then
   echo "ERROR: files larger than 5 MB:" >&2
   echo "$big" >&2
@@ -101,7 +127,12 @@ while IFS= read -r f; do
       fail=1
     fi
   done < <(grep -oE '\]\([^)]+\)' "$f" | sed -e 's/^](//' -e 's/)$//')
-done < <(find . -path ./.git -prune -o -name '*.md' -print)
+done < <(find . \
+    \( -path ./.git -o -name .venv -o -name node_modules \
+       -o -path ./frontend/dist \
+       -o -path ./frontend/playwright-report -o -path ./frontend/test-results \
+       -o -name __pycache__ -o -name .pytest_cache \) -prune -o \
+    -name '*.md' -print)
 
 if [[ "$fail" -ne 0 ]]; then
   echo "Repository gate FAILED" >&2

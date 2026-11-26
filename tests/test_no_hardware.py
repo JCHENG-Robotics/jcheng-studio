@@ -26,6 +26,10 @@ EXCLUDED_DIRS = {
     "__pycache__",
     ".pytest_cache",
     ".venv",
+    "node_modules",
+    "dist",
+    "playwright-report",
+    "test-results",
 }
 TEXT_SUFFIXES = {
     ".py",
@@ -111,7 +115,8 @@ def test_no_model_weights_session_data_or_recordings():
     for path in sorted(ROOT.rglob("*")):
         if not path.is_file():
             continue
-        if ".git" in path.relative_to(ROOT).parts:
+        parts = path.relative_to(ROOT).parts
+        if any(part in EXCLUDED_DIRS for part in parts[:-1]):
             continue
         if path.suffix in ARTIFACT_SUFFIXES:
             found.append(str(path.relative_to(ROOT)))

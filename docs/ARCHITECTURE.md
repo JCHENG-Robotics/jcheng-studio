@@ -1,8 +1,9 @@
 # Architecture — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. Version 0.1.0.
-> v0.1.0 is documentation and admission only: no backend, no UI and no runtime
-> process. The gateway client is planned for M1.
+> Status: **Experimental** as of 2026-11-26. Version 0.2.0.
+> v0.2.0 ports the frozen console backend and UI. The `/v1` gateway client is
+> still M1; the ported legacy HTTP adapter is documented in
+> [`MIGRATION.md`](MIGRATION.md) and is not the ecosystem contract.
 
 ## 1. Position in the ecosystem
 
@@ -40,6 +41,24 @@ Rules that come from the ecosystem and are not negotiable here:
   must not present one as the other.
 - The console is **not** an e-stop. The platform has no e-stop, brake, encoder
   or self-collision model; the system layer's stop latch is a software stop.
+
+### 1.1 Ported console (v0.2.0)
+
+| Component | Location | Transport | Boundary |
+|---|---|---|---|
+| Browser UI | `frontend/` | HTTP/WS to the local backend | Holds no gateway token; never calls the gateway directly |
+| Backend | `backend/` | HTTP/WS to the browser; HTTP to the legacy gateway | No DDS, device, vendor SDK or motion execution |
+| Mock adapter | `backend/app/adapters/mock.py` | In-process | Synthetic data; labelled `simulated` |
+| Legacy HTTP adapter | `backend/app/adapters/gateway.py` | HTTP `/health` + `X-Armpi-Token` | Frozen-baseline compatibility; not the `/v1` contract |
+| Shared primitives | `packages/jcheng_core/` | In-process | Pure NumPy statistics and point-cloud math |
+| Configs | `configs/` | Files | Joint mapping, pose/task contract, visual model, calibration |
+| Operator runners | `tools/` | HTTP to the local backend | Operator-only; motion requires explicit flags |
+
+The robot-side `ros2_gateway/` was **not** ported. It is a ROS 2/DDS L2
+gateway and remains in the frozen baseline until the gateway disposition is
+decided (see [`MIGRATION.md`](MIGRATION.md)). The `/v1` client is M1; until it
+exists, the ported console can only run against the mock adapter or the
+frozen legacy gateway.
 
 ## 2. Planes
 
@@ -90,17 +109,20 @@ Rules:
 | Contract identity | `contract_hash` in `capability.yaml` | Admission; reject a gateway whose contract does not match |
 
 Endpoints used by the Studio are the published gateway contract, not invented
-paths. v0.1.0 claims no runtime call. From M1 the client implements
+paths. v0.2.0 does not implement the `/v1` client; it ships the frozen
+baseline's legacy HTTP adapter instead. From M1 the client implements
 `GET /v1/health` (unauthenticated liveness), `GET /v1/contract`,
 `GET /v1/state` and `GET /v1/safety`, and one WebSocket subscription. Any
 endpoint the Studio needs that is not in the OpenAPI document is added to
 `jcheng-interfaces` first.
 
-The older frozen Studio in `jcheng-manipulation` used a pre-ecosystem gateway
-(`/health`, `X-Armpi-Token`) and a local `/api/health`. Those are **not** the
-contract of this repository. The new gateway uses `/v1/*` and `Authorization:
-Bearer`; the local `/api/health` endpoint of the Studio backend remains a
-liveness probe for the `jcheng-ops` watchdog and carries no robot state.
+The ported legacy adapter (`backend/app/adapters/gateway.py`) still uses the
+pre-ecosystem gateway (`/health`, `X-Armpi-Token`). It is enabled only in
+`ARMPI_MODE=hardware`, is not the contract of this repository, and must not be
+used by new features. The `/v1` client does not carry a compatibility shim for
+`/health` or the old token header. The local `/api/health` endpoint of the
+Studio backend remains a liveness probe for the `jcheng-ops` watchdog and
+carries no robot state.
 
 ## 5. Invariants
 

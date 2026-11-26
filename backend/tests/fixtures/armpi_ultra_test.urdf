@@ -1,0 +1,143 @@
+<?xml version="1.0"?>
+<!--
+  Minimal kinematic fixture for the Studio visual-workbench tests.
+
+  This is NOT the production ArmPi Ultra description and must never be used to
+  command the robot. The production xacro is a vendor-derived asset that stays
+  in the frozen jcheng-manipulation baseline; the console reads it only when
+  the operator sets ARMPI_URDF_PATH to that file.
+
+  The joint origins below are the nominal kinematic values needed by the FK
+  tests (link chain, camera mount and mimic gripper). Mesh, inertial and
+  collision data are deliberately omitted.
+-->
+<robot name="armpi_ultra">
+  <link name="base_link"/>
+  <link name="link1"/>
+  <link name="link2"/>
+  <link name="link3"/>
+  <link name="link4"/>
+  <link name="link5"/>
+  <link name="gripper_link"/>
+  <link name="end_effector_link"/>
+  <link name="camera_connet_link"/>
+  <link name="camera_link"/>
+  <link name="camera_optical_frame"/>
+  <link name="r_link"/>
+  <link name="l_link"/>
+  <link name="r_in_link"/>
+  <link name="r_out_link"/>
+  <link name="l_in_link"/>
+  <link name="l_out_link"/>
+
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="0.066956 -0.000081218 0.071005" rpy="0.0069813 0 -0.00032872"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.8012" upper="1.8012" effort="1000" velocity="10"/>
+  </joint>
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0.0091468 0.025662 0.015922" rpy="0 0 0"/>
+    <axis xyz="-0.0010551 -0.99998 0.0068419"/>
+    <limit lower="-0.6618" upper="1.1519" effort="1000" velocity="10"/>
+  </joint>
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="-0.00022615 -0.0058452 0.10056" rpy="-0.0067561 0.021887 0.0001759"/>
+    <axis xyz="0.000275 -1 -0.00032517"/>
+    <limit lower="-1.8012" upper="0.0" effort="1000" velocity="10"/>
+  </joint>
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <origin xyz="-0.000016458 0.000016766 0.094708" rpy="-0.00022696 -0.0072612 0"/>
+    <axis xyz="0.00040702 -1 -0.000213"/>
+    <limit lower="-1.5917" upper="1.5917" effort="1000" velocity="10"/>
+  </joint>
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/>
+    <child link="link5"/>
+    <origin xyz="0.000023581 -0.0192 0.056107" rpy="-0.003038 -0.011203 0"/>
+    <axis xyz="-0.012028 0.0031146 -0.99992"/>
+    <limit lower="-1.5917" upper="1.5499" effort="1000" velocity="10"/>
+  </joint>
+
+  <joint name="gripper_joint" type="fixed">
+    <parent link="link5"/>
+    <child link="gripper_link"/>
+    <origin xyz="0 0 0.0054388" rpy="0 0 0"/>
+  </joint>
+  <joint name="end_effector_joint" type="fixed">
+    <parent link="link5"/>
+    <child link="end_effector_link"/>
+    <origin xyz="0 0 0.08" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="camera_connet_joint" type="fixed">
+    <parent link="link4"/>
+    <child link="camera_connet_link"/>
+    <origin xyz="-0.040352 -0.019122 0.048005" rpy="0 -1.5614 0"/>
+  </joint>
+  <joint name="camera_link_joint" type="fixed">
+    <parent link="camera_connet_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5707963267948966 0 -1.5707963267948966"/>
+  </joint>
+
+  <joint name="r_joint" type="revolute">
+    <parent link="link5"/>
+    <child link="r_link"/>
+    <origin xyz="-0.0073166 -0.013992 0.027059" rpy="0 0 0"/>
+    <axis xyz="0.99996 -0.004699 -0.0070434"/>
+    <limit lower="-0.7" upper="0.2" effort="1000" velocity="10"/>
+  </joint>
+  <joint name="l_joint" type="revolute">
+    <parent link="link5"/>
+    <child link="l_link"/>
+    <origin xyz="-0.0073352 0.013977 0.027057" rpy="0 0 0"/>
+    <axis xyz="0.99997 0.0055811 -0.0058397"/>
+    <limit lower="-0.2" upper="0.7" effort="1000" velocity="10"/>
+    <mimic joint="r_joint" multiplier="-1" offset="0"/>
+  </joint>
+  <joint name="r_in_joint" type="revolute">
+    <parent link="link5"/>
+    <child link="r_in_link"/>
+    <origin xyz="-0.0071623 -0.004943 0.046019" rpy="0 0 0"/>
+    <axis xyz="-0.99996 0.0046987 0.0070436"/>
+    <limit lower="-0.7" upper="0.2" effort="1000" velocity="10"/>
+    <mimic joint="r_joint" multiplier="-1" offset="0"/>
+  </joint>
+  <joint name="r_out_joint" type="revolute">
+    <parent link="link5"/>
+    <child link="r_out_link"/>
+    <origin xyz="0.00020427 0 0.028999" rpy="0 0 0"/>
+    <axis xyz="-0.99996 0.0046987 0.0070436"/>
+    <limit lower="-0.7" upper="0.2" effort="1000" velocity="10"/>
+    <mimic joint="r_joint" multiplier="1" offset="0"/>
+  </joint>
+  <joint name="l_in_joint" type="revolute">
+    <parent link="link5"/>
+    <child link="l_in_link"/>
+    <origin xyz="-0.0071623 0.0049403 0.046019" rpy="0 0 0"/>
+    <axis xyz="0.99996 0.0046983 -0.0070439"/>
+    <limit lower="-0.2" upper="0.7" effort="1000" velocity="10"/>
+    <mimic joint="r_joint" multiplier="-1" offset="0"/>
+  </joint>
+  <joint name="l_out_joint" type="revolute">
+    <parent link="link5"/>
+    <child link="l_out_link"/>
+    <origin xyz="0.00020427 0 0.028999" rpy="0 0 0"/>
+    <axis xyz="0.99996 0.0046983 -0.0070439"/>
+    <limit lower="-0.2" upper="0.7" effort="1000" velocity="10"/>
+    <mimic joint="r_joint" multiplier="1" offset="0"/>
+  </joint>
+</robot>

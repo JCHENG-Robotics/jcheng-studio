@@ -1,0 +1,87 @@
+# ArmPi Debug Studio — joint mapping (G1)
+#
+# Source: vendor ros2_ws/src/driver/servo_controller/config/servo_controller.yaml
+#         + servo EEPROM position limits (read-only, 2026-11-18)
+#         + on-robot joint-limit survey (2026-11-18)
+# Evidence: docs/phase2/JOINT_LIMITS.md
+#           evidence/phase2/onsite_20261118/
+#
+# IMPORTANT:
+# - The position bounds below are the ADOPTED commandable range: the servo
+#   EEPROM limit minus a 20-pulse margin, or a hand-measured mechanical stop
+#   where that stop is inside the EEPROM range (joint2 low).
+# - `verified` is true from 2026-11-19: a formal stop survey measured all five
+#   arm joints by hand (one joint at a time, torque released) in the vertical
+#   pose, plus joint2 at the low operating pose. Every adopted bound is inside
+#   a hand-measured stop or inside the EEPROM clamp with a guard-bounded hand
+#   check; the mechanical stops are self-collision-limited and pose-dependent,
+#   which JOINT_LIMITS.md records. joint2's high bound was tightened to the
+#   low-pose hand stop (795 - 20 = 775).
+# - The vendor stack uses a uniform 240 deg / 1000 tick linear assumption.
+# - joint3 is inverted via min > max in the vendor config. Here the direction
+#   is explicit so the sign error is visible. The vendor mapping is one-sided
+#   (pulse 500..1000 -> 0..-2.094 rad); that convention is kept.
+# - Measured pulses: joint2 low 322 (mechanical); every other bound is the
+#   EEPROM limit. 20 pulses = 0.0838 rad = 4.8 deg.
+
+schema_version: 1
+mapping_version: measured-2026-11-19
+source: "servo EEPROM limits + formal 2026-11-19 stop survey (20-pulse margin)"
+verified: true
+verification_status: measured_2026_11_19_operating_envelope
+radians_per_tick: 0.004188790204786391
+
+joints:
+  - name: joint1
+    servo_id: 6
+    init_raw: 500
+    min_raw: 70
+    max_raw: 930
+    direction: 1
+    limit_source: measured_stops_2026_11_19+margin
+    verified: true
+  - name: joint2
+    servo_id: 5
+    init_raw: 500
+    min_raw: 342
+    max_raw: 775
+    direction: 1
+    limit_source: measured_low_2026_11_18+measured_high_2026_11_19
+    verified: true
+  - name: joint3
+    servo_id: 4
+    init_raw: 500
+    min_raw: 930
+    max_raw: 500
+    direction: -1
+    limit_source: eeprom_low_one_sided_2026_11_19+margin
+    verified: true
+  - name: joint4
+    servo_id: 3
+    init_raw: 500
+    min_raw: 120
+    max_raw: 880
+    direction: 1
+    limit_source: guard_bounded_2026_11_19+eeprom_margin
+    verified: true
+  - name: joint5
+    servo_id: 2
+    init_raw: 500
+    min_raw: 120
+    max_raw: 870
+    direction: 1
+    limit_source: guard_bounded_2026_11_19+eeprom_margin
+    verified: true
+
+excluded:
+  - name: r_joint
+    servo_id: 1
+    reason: "Q-08: gripper stays excluded from G1. Direction and range are measured (2026-11-18 19:59: increasing r_joint closes; open raw 170 / register 188, closed raw 700 / register 640, ~34 counts backlash), but the gateway has no gripper single-joint motion path."
+
+safety:
+  feedback_max_age_ms: 500
+  max_step_rad: 0.35
+  min_duration_s: 0.5
+  max_duration_s: 10.0
+  preview_ttl_s: 30
+  lease_ttl_s: 60

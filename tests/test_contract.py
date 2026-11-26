@@ -87,8 +87,17 @@ def test_document_set_exists():
         "docs/ARCHITECTURE.md",
         "docs/INTEGRATION.md",
         "docs/SESSIONS.md",
+        "docs/MIGRATION.md",
+        "docs/PRD.md",
+        "docs/legacy/README.md",
+        "backend/pyproject.toml",
+        "backend/tests/fixtures/armpi_ultra_test.urdf",
+        "packages/jcheng_core/pyproject.toml",
+        "frontend/package.json",
+        "configs/calibration/calibration_table_down_20261118.json",
         "scripts/check_repo_gate.sh",
         "evidence/20261126_scaffold/README.md",
+        "evidence/20261126_console_port/README.md",
     ):
         assert (ROOT / name).is_file(), f"missing {name}"
 

@@ -1,12 +1,13 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.1.0 has no runtime surface:
-> no backend, no UI and no gateway call exist. Everything below marked M1/M2 is
-> planned, not implemented.
+> Status: **Experimental** as of 2026-11-26. v0.2.0 ports the frozen console
+> backend and UI. The `/v1` gateway client is still M1, and the ported legacy
+> HTTP adapter is documented in section 2. Everything marked M1/M2 remains
+> planned.
 
 ## 1. Admission and discovery
 
-The system reads `capability.yaml` and checks the admission fields. For v0.1.0
+The system reads `capability.yaml` and checks the admission fields. For v0.2.0
 it finds:
 
 | Field | Value | Meaning |
@@ -21,10 +22,11 @@ it finds:
 | `hardware_access` | `none` | hard boundary |
 | `runtime` | empty | no ROS domain, no topics, no services |
 
-Because the runtime surface is empty, admission means "no runtime object to
-discover". The Studio is not a ROS node and never appears in a DDS graph; the
-system layer does not need to arbitrate with it. When M1 adds the gateway
-client, the runtime surface stays empty: HTTP/WS is not a ROS interface.
+Because the **ROS** runtime surface is empty, admission means "no ROS object
+to discover". The ported backend is an HTTP process, not a ROS node, and never
+appears in a DDS graph; the system layer does not need to arbitrate with it.
+When M1 adds the `/v1` gateway client, the ROS runtime surface stays empty:
+HTTP/WS is not a ROS interface.
 
 ## 2. Gateway transport and contract
 
@@ -48,16 +50,20 @@ and [`jcheng-ws.v1.json`](https://github.com/JCHENG-Robotics/jcheng-interfaces/b
 Endpoints the Studio needs that are absent from the OpenAPI document are added
 to `jcheng-interfaces` first — the Studio does not invent a private endpoint.
 
-### Deprecated pre-ecosystem paths
+### Legacy pre-ecosystem adapter (ported v0.2.0)
 
-The frozen Studio in `jcheng-manipulation` used the older gateway `/health`
-with an `X-Armpi-Token` header and a local `/api/health`. Neither is a contract
-of this repository. During migration:
+The ported console includes the frozen Studio's older gateway client
+(`backend/app/adapters/gateway.py`), which uses `/health` with an
+`X-Armpi-Token` header. It is enabled only in `ARMPI_MODE=hardware` and exists
+so the ported console can run against an already-deployed frozen gateway.
+During migration:
 
 - The local backend keeps `/api/health` as a liveness probe for the
   `jcheng-ops` watchdog. It reports backend liveness only and never robot state.
-- The robot-facing client uses `/v1/*` and `Authorization: Bearer`. It does not
-  carry a compatibility shim for `/health` or for the old token header.
+- The legacy adapter is **not** a contract of this repository. New features
+  must not use it, and it does not become a compatibility shim for `/v1`.
+- The `/v1` client (M1) uses `Authorization: Bearer` and does not carry a
+  compatibility shim for `/health` or for the old token header.
 
 ## 3. Operator sessions and authorization
 
@@ -118,6 +124,7 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | Stage | Evidence |
 |---|---|
 | v0.1.0 admission | `python3 -m pytest -q tests`; `bash scripts/check_repo_gate.sh` |
+| v0.2.0 console port | backend tests (154 passed), frontend build, no-hardware scan; mock API paths only (L0–L2) |
 | M1 gateway client | contract, health, state and safety read-only tests against a mock gateway (L2) |
 | M2 session and joint debug | mock gateway proves lease-required, stale-state and fail-closed paths (L3) |
 | M3 trajectory inspection | replay of recorded sessions (L4); no robot |

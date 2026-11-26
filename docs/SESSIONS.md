@@ -3,6 +3,12 @@
 > Status: **Proposed** as of 2026-11-26; to be frozen at M2.
 > No session store, record format or export exists yet. The schema below is the
 > contract the M2 implementation must satisfy.
+>
+> **Ported v0.2.0 note:** the backend includes the frozen baseline's SQLite
+> event store (`backend/app/persistence/store.py`). It is a legacy console log
+> for commands and events, not the session store described here. The database
+> path is operator-configured and lives outside git; M2 adds the session store
+> and the authorization gate.
 
 ## 1. Purpose
 
