@@ -19,6 +19,7 @@ from .application.diagnostics_ops import DiagnosticsOperations
 from .application.experiment_ops import ExperimentOperations
 from .application.gateway_ops import GatewayV1Operations
 from .application.motion_ops import MotionOperations
+from .application.session_ops import SessionOperations
 # Re-exported for the existing task tests; the implementation now lives in
 # application/task_ops.py.
 from .application.task_ops import (
@@ -85,6 +86,7 @@ class RobotService(
     MotionOperations,
     VisualOperations,
     DiagnosticsOperations,
+    SessionOperations,
     GatewayV1Operations,
 ):
     def __init__(
@@ -126,6 +128,7 @@ class RobotService(
         self._idempotency: dict[str, dict[str, Any]] = {}
         self._visual_bundle: tuple[Any, dict[str, Any]] | None = None
         self._visual_error: list[str] | None = None
+        self._sessions: Any = None
 
     # ------------------------------------------------------------------ helpers
     def _storage_fault(self) -> Fault:
@@ -1021,4 +1024,6 @@ class RobotService(
         return self._trajectory_or_404(trajectory_id)
 
     def close(self) -> None:
+        if self._sessions is not None:
+            self._sessions.close()
         self.store.close()

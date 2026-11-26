@@ -19,6 +19,8 @@ import type {
   ProbeResult,
   RobotState,
   SafetyReport,
+  SessionExport,
+  SessionRecord,
   StopResult,
   TargetPayload,
   TaskPlan,
@@ -192,6 +194,47 @@ export const api = {
   },
   async gatewayV1Stream(): Promise<GatewayV1StreamStatus> {
     return request<GatewayV1StreamStatus>("/api/gateway/v1/stream");
+  },
+  async sessionCurrent(): Promise<{ session: SessionRecord | null }> {
+    return request<{ session: SessionRecord | null }>("/api/session/current");
+  },
+  async sessionOpen(
+    operator: string,
+    purpose: string,
+  ): Promise<{ session: SessionRecord }> {
+    return request<{ session: SessionRecord }>("/api/session/open", {
+      method: "POST",
+      body: JSON.stringify({ operator, purpose }),
+    });
+  },
+  async sessionAuthorize(
+    sessionId: string,
+  ): Promise<{ session: SessionRecord }> {
+    return request<{ session: SessionRecord }>("/api/session/authorize", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+  },
+  async sessionDegrade(
+    sessionId: string,
+    reason: string,
+  ): Promise<{ session: SessionRecord }> {
+    return request<{ session: SessionRecord }>("/api/session/degrade", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, reason }),
+    });
+  },
+  async sessionClose(
+    sessionId: string,
+    reason: string,
+  ): Promise<{ session: SessionRecord }> {
+    return request<{ session: SessionRecord }>("/api/session/close", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, reason }),
+    });
+  },
+  async sessionExport(sessionId: string): Promise<SessionExport> {
+    return request<SessionExport>(`/api/session/${sessionId}/export`);
   },
   async peripherals(): Promise<Peripherals> {
     return request<Peripherals>("/api/peripherals");

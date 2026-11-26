@@ -226,6 +226,42 @@ export interface GatewayV1StreamStatus {
   errors: GatewayV1Issue[];
 }
 
+export interface SessionEvent {
+  event_id: string;
+  seq: number;
+  at: string;
+  type: string;
+  provenance: string;
+  payload: Record<string, unknown>;
+}
+
+export interface SessionRecord {
+  schema_version: number;
+  session_id: string;
+  opened_at: string;
+  closed_at: string | null;
+  operator: string;
+  purpose: string;
+  studio_version: string;
+  studio_commit: string | null;
+  contract_hash: string | null;
+  gateway_url: string | null;
+  robot_profile: string | null;
+  calibration: Record<string, unknown>;
+  state: string;
+  close_reason: string | null;
+  actions: unknown[];
+  degraded_periods: { from: string; to: string }[];
+  events: SessionEvent[];
+  record_hash: string | null;
+}
+
+export interface SessionExport {
+  session_id: string;
+  export_path: string;
+  record_hash: string;
+}
+
 export interface EventRecord {
   seq: number;
   event_id: string;

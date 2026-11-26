@@ -73,21 +73,21 @@ uncommitted changes and evidence remain addressable.
 | Check | Result | Level |
 |---|---|---|
 | `python3 -m pytest -q tests` (manifest, document set, static no-hardware scan) | pass | L0 |
-| `backend/.venv/bin/python -m pytest backend/tests` | 172 passed | L1 |
+| `backend/.venv/bin/python -m pytest backend/tests` | 179 passed | L1 |
 | `npm run build` in `frontend/` | pass | L0 |
 | `bash scripts/check_repo_gate.sh` | pass | L0 |
 | Mock HTTP API paths (preview, execute, peripherals, task plan) | covered by the backend suite | L2 (mock) |
 | Read-only `/v1` REST client (health, contract, state, safety) | 10 mock-gateway tests; Bearer, mismatch and unreachable paths | L2 (mock) |
-| Playwright browser E2E | not run in this port | Unverified |
-| Legacy gateway integration | not exercised here | Unverified |
 | Read-only `/v1/ws/state` subscription | 8 mock-WebSocket tests; hello-first, contract, auth and reconnect paths; real system gateway interop | L2 (mock + loopback) |
+| M2a operator sessions | 7 tests: lifecycle, refusal, seal/export, tamper, redaction, restart | L2 (mock) |
 | Playwright browser E2E | not run in this port | Unverified |
 | Legacy gateway integration | not exercised here | Unverified |
 | Hardware motion | no session authorized | Unverified |
 
 Evidence: [`evidence/20261126_console_port/`](../evidence/20261126_console_port/README.md),
-[`evidence/20261126_gateway_v1/`](../evidence/20261126_gateway_v1/README.md)
-and [`evidence/20261126_gateway_ws/`](../evidence/20261126_gateway_ws/README.md).
+[`evidence/20261126_gateway_v1/`](../evidence/20261126_gateway_v1/README.md),
+[`evidence/20261126_gateway_ws/`](../evidence/20261126_gateway_ws/README.md)
+and [`evidence/20261126_sessions/`](../evidence/20261126_sessions/README.md).
 
 ## 6. Follow-ups
 
@@ -97,9 +97,9 @@ and [`evidence/20261126_gateway_ws/`](../evidence/20261126_gateway_ws/README.md)
    hello-first validation and bounded reconnect. Both are proven against mock
    gateways; the stream also interoperates with the real `jcheng-system`
    read-only gateway. See [`GATEWAY_V1.md`](GATEWAY_V1.md).
-2. **M2 — operator sessions.** Add the append-only session store and
-   authorization gate from `docs/SESSIONS.md`; the ported SQLite event store is
-   not that store.
+2. **M2a — operator sessions (complete 2026-11-26).** SQLite store outside
+   git, append-only events, authorization gate, seal/export and restart-close
+   are implemented and tested. **M2b — joint/gripper intent** remains.
 3. **Gateway disposition — decided 2026-11-26.** `jcheng-system`'s `/v1`
    gateway is the target; the frozen `ros2_gateway` is not ported into this
    repository. The legacy adapter/runners remain transitional, disabled by

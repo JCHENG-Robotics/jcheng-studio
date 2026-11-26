@@ -1,10 +1,10 @@
 # Architecture — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. Version 0.4.0.
-> v0.4.0 ports the frozen console backend and UI and adds the read-only `/v1`
-> REST and `/v1/ws/state` WebSocket clients. The ported legacy HTTP adapter is
-> documented in [`MIGRATION.md`](MIGRATION.md) and is not the ecosystem
-> contract.
+> Status: **Experimental** as of 2026-11-26. Version 0.5.0.
+> v0.5.0 ports the frozen console backend and UI, adds the read-only `/v1`
+> REST and `/v1/ws/state` clients, and adds the M2a operator-session store and
+> authorization gate. The ported legacy HTTP adapter is documented in
+> [`MIGRATION.md`](MIGRATION.md) and is not the ecosystem contract.
 
 ## 1. Position in the ecosystem
 
@@ -51,6 +51,7 @@ Rules that come from the ecosystem and are not negotiable here:
 | Backend | `backend/` | HTTP/WS to the browser; read-only `/v1` HTTP/WS and legacy HTTP | No DDS, device, vendor SDK or motion execution |
 | `/v1` read-only REST client | `backend/app/adapters/gateway_v1.py` | HTTP, Bearer, GET only | health/contract/state/safety; no lease, motion or stop |
 | `/v1/ws/state` read-only client | `backend/app/adapters/gateway_v1_stream.py` | WebSocket, Bearer, one subscription | hello/state/safety; bounded reconnect; no intent |
+| Session store | `backend/app/sessions/store.py` | SQLite outside git | Append-only events; authorization gate; no lease |
 | Mock adapter | `backend/app/adapters/mock.py` | In-process | Synthetic data; labelled `simulated` |
 | Legacy HTTP adapter | `backend/app/adapters/gateway.py` | HTTP `/health` + `X-Armpi-Token` | Frozen-baseline compatibility; not the `/v1` contract |
 | Shared primitives | `packages/jcheng_core/` | In-process | Pure NumPy statistics and point-cloud math |
@@ -63,6 +64,18 @@ gateway and stays in the frozen baseline; the disposition is decided in
 The read-only `/v1` REST (M1a) and WebSocket (M1b) clients are implemented.
 The legacy adapter remains a transitional operator path
 and is not admitted by `capability.yaml`.
+
+### 1.2 M2a operator-session store
+
+`backend/app/sessions/store.py` keeps one active session at a time in SQLite
+under `~/.local/state/armpi-studio/`. Events are append-only; the session row
+is a materialized current state. Closing writes a `closed` event and a SHA-256
+seal over the canonical record; export verifies the seal. Authorization calls
+the read-only `/v1` status and refuses unless the gateway is configured,
+reachable, authenticated, contract-matching, fresh and not stop-latched.
+Failures degrade the session. No token is stored; the gateway URL drops
+userinfo, query and fragment. A restart closes sessions left active. M2a has no
+lease or motion path; M2b adds joint/gripper intent.
 
 ## 2. Planes
 
