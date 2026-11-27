@@ -9,6 +9,9 @@
 # Mock mode (default, no robot, no gateway):
 #   tools/studio/start_studio.sh
 #
+# Offline demo mode (mock data, explicit DEMO label, never executes motion):
+#   tools/studio/start_studio.sh --demo
+#
 # Read-only legacy gateway mode (the frozen baseline's pre-ecosystem gateway):
 #   ARMPI_GATEWAY_URL=http://<gateway-host>:8765 \
 #   ARMPI_GATEWAY_TOKEN_FILE=~/.config/armpi-studio/gateway-token \
@@ -34,16 +37,18 @@ DB_PATH="${DB_PATH:-$STATE_DIR/studio.db}"
 LOG="${LOG:-$STATE_DIR/console.log}"
 MODE="mock"
 TAKEOVER=0
+DEMO=0
 
 usage() {
-    sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --mock) MODE="mock"; shift ;;
-        --hardware) MODE="hardware"; shift ;;
-        --takeover) MODE="hardware"; TAKEOVER=1; shift ;;
+        --mock) MODE="mock"; DEMO=0; shift ;;
+        --demo) MODE="mock"; DEMO=1; shift ;;
+        --hardware) MODE="hardware"; DEMO=0; shift ;;
+        --takeover) MODE="hardware"; TAKEOVER=1; DEMO=0; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -73,6 +78,7 @@ if [[ "$MODE" == "hardware" ]]; then
         || fail "set ARMPI_GATEWAY_TOKEN or ARMPI_GATEWAY_TOKEN_FILE"
     export ARMPI_MODE=hardware
     export ARMPI_GATEWAY_URL ARMPI_GATEWAY_TOKEN
+    unset ARMPI_DEMO
     if [[ "$TAKEOVER" == "1" ]]; then
         [[ "${ARMPI_TAKEOVER_ACK:-}" == "I_AM_AT_THE_ROBOT_WITH_A_CLEAR_WORKSPACE" ]] \
             || fail "--takeover needs ARMPI_TAKEOVER_ACK=I_AM_AT_THE_ROBOT_WITH_A_CLEAR_WORKSPACE"
@@ -87,6 +93,11 @@ if [[ "$MODE" == "hardware" ]]; then
 else
     export ARMPI_MODE=mock
     export ARMPI_HARDWARE_MOTION=0
+    if [[ "$DEMO" == "1" ]]; then
+        export ARMPI_DEMO=1
+    else
+        unset ARMPI_DEMO
+    fi
     unset ARMPI_GATEWAY_URL ARMPI_GATEWAY_TOKEN ARMPI_CAMERA_GATEWAY_URL
     unset ARMPI_MOTION_SCOPE ARMPI_TAKEOVER_ACK ARMPI_SUPERVISED_MOTION_ACK
 fi
@@ -119,6 +130,7 @@ rm -f "$health_tmp"
 [[ "$up" == "1" ]] || fail "backend did not answer /api/health within 25 s"
 
 echo "mode: $MODE"
+[[ "$DEMO" == "1" ]] && echo "demo: on (Mock data, no motion)"
 curl -s "http://$HOST:$PORT/api/health"; echo
 cat <<EOF
 Open http://$HOST:$PORT

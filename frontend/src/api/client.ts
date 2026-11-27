@@ -2,6 +2,7 @@ import { z } from "zod";
 import type {
   CameraReference,
   CameraReferenceList,
+  CapabilitiesPayload,
   CommandRecord,
   ConnectionReport,
   Diagnostics,
@@ -194,6 +195,9 @@ export const api = {
   },
   async diagnostics(): Promise<Diagnostics> {
     return request<Diagnostics>("/api/diagnostics");
+  },
+  async capabilities(): Promise<CapabilitiesPayload> {
+    return request<CapabilitiesPayload>("/api/capabilities");
   },
   async gatewayV1Status(): Promise<GatewayV1Status> {
     return request<GatewayV1Status>("/api/gateway/v1/status");

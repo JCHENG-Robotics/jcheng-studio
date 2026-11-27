@@ -48,12 +48,17 @@
 | M2a 操作会话存储与授权门禁 | `backend/app/sessions/`；诊断页 | 完成；SQLite 在仓库外，封存/导出已测试 |
 | M2b 关节/夹爪意图转发 | `backend/app/adapters/gateway_v1_intent.py`；诊断页 | 完成；操作员提供 lease，mock 校验/执行已验证 |
 | M3 离线会话回放与 commanded/measured 分析 | `backend/app/analysis/session_replay.py`；诊断页 | 完成；带 provenance 的回放与哈希导出 |
-| React/TypeScript 控制台（八个页面） | `frontend/` | 已迁移；生产构建通过 |
+| React/TypeScript 控制台（十一个页面，含功能总览） | `frontend/` | 已迁移；生产构建通过 |
+| 能力总览（所有功能始终可见的状态清单） | `backend/app/application/capability_ops.py`；`/capabilities` 页面 | 完成；实机只读与演示模式探针已记录 |
+| 离线演示模式 | `tools/studio/start_studio.sh --demo`；`ARMPI_DEMO=1` | 完成；Mock 数据标记 `SIMULATION`，不下发运动 |
 | 关节映射、位姿/任务契约与视觉模型 | `configs/` | 已迁移 |
 | 任务契约使用的手眼标定 | `configs/calibration/` | 已迁移（2026-11-18 TSAI 结果） |
 | 操作员运行脚本 | `tools/` 与 `tools/studio/` | 已迁移；仅操作员手动运行 |
 | G1–G8.1 与 E7 设计记录 | `docs/legacy/` | 迁移记录；链接指向基线仓库 |
 | 产品需求文档 | `docs/PRD.md` | 已迁移 PRD v1.0 |
+
+[`docs/CAPABILITIES.md`](docs/CAPABILITIES.md) 记录了“始终可见”的四条保证、
+演示模式与看护常驻方式。
 
 未迁移：机器人侧 `ros2_gateway/`（ROS 2/DDS，L2）、运行时 `data/studio.db`、硬件
 证据包，以及厂商派生的 URDF。legacy HTTP 适配器面向冻结网关（`/health`、
@@ -137,6 +142,9 @@ cd frontend && npm ci && npm run build; cd ..
 
 # 启动控制台（默认 mock）。
 tools/studio/start_studio.sh
+
+# 离线演示：用 Mock 数据展示全部页面，标记 DEMO，不下发运动。
+tools/studio/start_studio.sh --demo
 ```
 
 门禁检查文档集、准入清单、相对链接、密钥、会话数据库、操作员 env 文件、模型
@@ -147,7 +155,9 @@ tools/studio/start_studio.sh
 | 声明 | 状态 | 证据 |
 |---|---|---|
 | 仓库门禁、准入清单与文档集通过 | 已验证（L0，2026-11-26） | [`evidence/20261126_replay/`](evidence/20261126_replay/README.md) |
-| 后端套件：191 passed | 已验证（L1，2026-11-26） | [`evidence/20261126_replay/backend-tests.txt`](evidence/20261126_replay/backend-tests.txt) |
+| 后端套件：220 passed | 已验证（L1，2026-11-27） | [`evidence/20261127_capabilities/backend-tests.txt`](evidence/20261127_capabilities/backend-tests.txt) |
+| 能力总览在实机只读和演示模式下都保留全部 19 行 | 已验证（L2，实机只读 + 演示，2026-11-27） | [`backend/tests/test_capabilities.py`](backend/tests/test_capabilities.py)；[证据](evidence/20261127_capabilities/README.md) |
+| 离线演示模式要求 mock、标记 DEMO 且不下发运动 | 已验证（L1，2026-11-27） | [`backend/tests/test_capabilities.py`](backend/tests/test_capabilities.py)；[演示响应](evidence/20261127_capabilities/demo-capabilities.json) |
 | 只读 `/v1` REST 客户端（health、contract、state、safety） | 已验证（L2，mock 网关，2026-11-26） | [`backend/tests/test_gateway_v1.py`](backend/tests/test_gateway_v1.py)；[证据](evidence/20261126_gateway_v1/README.md) |
 | 只读 `/v1/ws/state` 订阅 | 已验证（L2，mock 网关，2026-11-26） | [`backend/tests/test_gateway_v1_stream.py`](backend/tests/test_gateway_v1_stream.py)；[证据](evidence/20261126_gateway_ws/README.md) |
 | 真实 `jcheng-system` 只读网关的 WS 联调 | 已验证（L2，loopback，2026-11-26） | [`evidence/20261126_gateway_ws/integration.txt`](evidence/20261126_gateway_ws/integration.txt) |

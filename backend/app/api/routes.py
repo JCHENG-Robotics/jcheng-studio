@@ -201,6 +201,16 @@ def diagnostics(request: Request) -> dict[str, Any]:
     return _service(request).diagnostics()
 
 
+@router.get("/capabilities")
+def capabilities(request: Request) -> dict[str, Any]:
+    """Always-present feature registry with live availability.
+
+    The shape is fixed: a missing dependency changes a status, never the list,
+    so the console can show every surface even when the robot is offline.
+    """
+    return _service(request).capabilities()
+
+
 @router.get("/gateway/v1/status")
 def gateway_v1_status(request: Request) -> dict[str, Any]:
     """Read-only health/contract/state/safety probe; no lease, no motion."""

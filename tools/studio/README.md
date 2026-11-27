@@ -19,6 +19,9 @@ legacy hardware mode points the backend at an already-running legacy gateway.
 # mock mode (default; no robot, no gateway)
 tools/studio/start_studio.sh
 
+# offline demo (full mock UI, DEMO banner, never executes motion)
+tools/studio/start_studio.sh --demo
+
 # read-only legacy gateway mode
 ARMPI_GATEWAY_URL=http://<gateway-host>:8765 \
 ARMPI_GATEWAY_TOKEN_FILE=~/.config/armpi-studio/gateway-token \

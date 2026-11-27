@@ -75,6 +75,8 @@ class Settings:
     teleop_status_url: str | None = None
     teleop_status_timeout_s: float = 1.0
     system_stop_enabled: bool = False
+    # Offline demo: mock data with an explicit DEMO label. Requires mock mode.
+    demo: bool = False
     api_token: str | None = None
     urdf_path: Path = DEFAULT_URDF
     visual_model_path: Path = DEFAULT_VISUAL_MODEL
@@ -148,6 +150,12 @@ class Settings:
             raise ValueError(
                 "ARMPI_SYSTEM_STOP=1 requires ARMPI_GATEWAY_V1_URL and "
                 "ARMPI_GATEWAY_V1_TOKEN"
+            )
+        demo = _env_bool("ARMPI_DEMO", False)
+        if demo and resolved_mode is not Mode.MOCK:
+            raise ValueError(
+                "ARMPI_DEMO=1 requires ARMPI_MODE=mock; hardware mode never "
+                "falls back to simulated data"
             )
         session_db_path = Path(
             os.getenv("ARMPI_SESSION_DB", str(DEFAULT_SESSION_DB))
@@ -234,6 +242,7 @@ class Settings:
             teleop_status_url=teleop_status_url,
             teleop_status_timeout_s=teleop_status_timeout_s,
             system_stop_enabled=system_stop_enabled,
+            demo=demo,
             api_token=api_token,
             urdf_path=Path(os.getenv("ARMPI_URDF_PATH", str(DEFAULT_URDF))),
             visual_model_path=Path(
