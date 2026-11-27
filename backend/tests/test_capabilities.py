@@ -43,14 +43,20 @@ def test_catalog_shape_is_fixed(settings, mapping, clock) -> None:
     assert payload["demo"] is False
 
 
-def test_mock_keeps_every_surface_available(settings, mapping, clock) -> None:
+def test_mock_keeps_every_surface_visible(settings, mapping, clock) -> None:
+    """Legacy motion is default-disabled, so execution pages are read-only.
+
+    The rows stay in the registry (nothing disappears), but no detail may imply
+    that mock mode can dispatch motion.
+    """
     from app.adapters.mock import MockRobotAdapter
 
     service = _service(settings, mapping, clock, MockRobotAdapter(mapping, clock=clock))
     features = _by_id(service.capabilities())
-    assert features["joints"]["status"] == "available"
-    assert features["task"]["status"] == "available"
-    assert features["motion"]["status"] == "available"
+    assert features["joints"]["status"] == "read_only"
+    assert features["task"]["status"] == "read_only"
+    assert features["motion"]["status"] == "read_only"
+    assert "legacy" in features["motion"]["detail"]
     assert features["replay"]["status"] == "available"
     assert features["diagnostics"]["status"] == "available"
 

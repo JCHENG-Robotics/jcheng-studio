@@ -51,6 +51,8 @@ def pose_settings(tmp_path: Path) -> Settings:
         frontend_dist=tmp_path / "dist",
         log_level="info",
         hardware_motion_enabled=False,
+        # This module exercises the deprecated dispatch runner directly.
+        legacy_motion_enabled=True,
         motion_scope="pose",
         takeover_acknowledged=True,
         takeover_config_path=TAKEOVER_PATH,
@@ -321,6 +323,7 @@ def test_hardware_pose_requires_a_pose_gateway(mapping: MappingConfig) -> None:
         motion_enabled=True,
         motion_scope="pose",
         takeover=takeover,
+        legacy_motion=True,
     )
     adapter._gateway = FakeGateway()
     state = adapter.snapshot()

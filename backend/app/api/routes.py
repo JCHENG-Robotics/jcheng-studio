@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import (
     APIRouter,
     Body,
+    Depends,
     Header,
     Query,
     Request,
@@ -26,7 +27,9 @@ from pydantic import BaseModel, Field
 from ..domain.models import MotionTarget
 from ..domain.profile import ProfileParams
 from ..errors import ServiceError
+from ..legacy_motion import legacy_motion_error
 from ..service import RobotService
+from ..system_intent import require_system_intent
 
 router = APIRouter(prefix="/api")
 
@@ -135,6 +138,37 @@ class CameraReferenceIn(BaseModel):
 
 def _service(request: Request) -> RobotService:
     return request.app.state.service
+
+
+def _require_legacy_motion(service: RobotService, operation: str) -> None:
+    """Refuse a deprecated legacy motion entry point unless explicitly enabled.
+
+    The double switch (``ARMPI_MODE=legacy`` and
+    ``ARMPI_ENABLE_LEGACY_MOTION=1``) is derived into
+    ``settings.legacy_motion_enabled`` at startup. Everything else returns
+    HTTP 410 Gone with the migration hint.
+    """
+    if not service.settings.legacy_motion_enabled:
+        raise legacy_motion_error(operation)
+
+
+_LEGACY_MOTION_ROUTES = {
+    "/api/motion/execute": "POST /api/motion/execute",
+    "/api/chassis/pulse": "POST /api/chassis/pulse",
+    "/api/motion/stop": "POST /api/motion/stop",
+}
+
+
+def _legacy_motion_gate(request: Request) -> None:
+    """Route dependency: answer 410 before the request body is validated.
+
+    A deprecated endpoint must stay unmistakably unavailable even for a stale
+    client with an old or partial payload, so this runs before the Pydantic
+    body model.
+    """
+    operation = _LEGACY_MOTION_ROUTES.get(request.url.path)
+    if operation is not None:
+        _require_legacy_motion(_service(request), operation)
 
 
 def _targets(items: list[TargetIn]) -> list[MotionTarget]:
@@ -261,7 +295,9 @@ def session_close(request: Request, body: SessionReasonIn) -> dict[str, Any]:
 
 @router.post("/session/intent/joint")
 def session_intent_joint(request: Request, body: JointIntentIn) -> dict[str, Any]:
-    return _service(request).session_intent_joint(
+    service = _service(request)
+    require_system_intent(service.settings, "POST /api/session/intent/joint")
+    return service.session_intent_joint(
         body.session_id,
         body.lease_id,
         body.joint,
@@ -273,7 +309,9 @@ def session_intent_joint(request: Request, body: JointIntentIn) -> dict[str, Any
 
 @router.post("/session/intent/gripper")
 def session_intent_gripper(request: Request, body: GripperIntentIn) -> dict[str, Any]:
-    return _service(request).session_intent_gripper(
+    service = _service(request)
+    require_system_intent(service.settings, "POST /api/session/intent/gripper")
+    return service.session_intent_gripper(
         body.session_id,
         body.lease_id,
         body.position_rad,
@@ -381,7 +419,10 @@ def preview(request: Request, body: PreviewIn) -> dict[str, Any]:
     )
 
 
-@router.post("/motion/execute")
+@router.post(
+    "/motion/execute",
+    dependencies=[Depends(_legacy_motion_gate)],
+)
 def execute(
     request: Request,
     body: ExecuteIn,
@@ -415,7 +456,10 @@ class ChassisPulseIn(BaseModel):
     duration_s: float
 
 
-@router.post("/chassis/pulse")
+@router.post(
+    "/chassis/pulse",
+    dependencies=[Depends(_legacy_motion_gate)],
+)
 def chassis_pulse(request: Request, body: ChassisPulseIn) -> dict[str, Any]:
     return _service(request).chassis_pulse(
         session_id=body.session_id,
@@ -427,7 +471,10 @@ def chassis_pulse(request: Request, body: ChassisPulseIn) -> dict[str, Any]:
     )
 
 
-@router.post("/motion/stop")
+@router.post(
+    "/motion/stop",
+    dependencies=[Depends(_legacy_motion_gate)],
+)
 def stop(request: Request, body: StopIn) -> dict[str, Any]:
     return _service(request).stop(
         session_id=body.session_id,

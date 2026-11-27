@@ -9,6 +9,11 @@ Motion is disabled unless the backend was started with
 together with the fixed ``ARMPI_SUPERVISED_MOTION_ACK`` phrase; the adapter then
 enforces single-joint commands, a smaller step and a longer duration floor, and
 the gateway independently re-validates the command against measured pulses.
+
+The frozen pre-ecosystem dispatch/chassis/stop calls are deprecated. They are
+default-disabled and additionally gated by ``legacy_motion``: even a direct
+adapter call is refused unless the backend was started with
+``ARMPI_MODE=legacy`` + ``ARMPI_ENABLE_LEGACY_MOTION=1``.
 """
 
 from __future__ import annotations
@@ -35,6 +40,11 @@ from ..domain.enums import (
 from ..domain.mapping import MappingConfig
 from ..domain.motion import EffectiveMotionLimits, effective_motion_limits
 from ..domain.takeover import TakeoverConfig
+from ..legacy_motion import (
+    LEGACY_CHASSIS_PULSE_PATH,
+    LEGACY_DISPATCH_PATH,
+    LEGACY_STOP_PATH,
+)
 from ..domain.models import (
     BatteryState,
     CameraStatus,
@@ -103,6 +113,7 @@ class HardwareAdapter(RobotAdapter):
         supervised: bool = False,
         motion_scope: str = "step",
         takeover: TakeoverConfig | None = None,
+        legacy_motion: bool = False,
     ) -> None:
         self.mapping = mapping
         self._clock = clock or time.monotonic
@@ -122,6 +133,10 @@ class HardwareAdapter(RobotAdapter):
             else self._gateway
         )
         self.motion_enabled = bool(motion_enabled and gateway_url)
+        # Deprecated legacy dispatch/stop transport. It is off unless the
+        # backend was started with the legacy double switch; the guard below
+        # refuses direct calls as well.
+        self.legacy_motion = bool(legacy_motion)
         self.supervised = bool(supervised and self.motion_enabled)
         self.takeover = takeover if (takeover is not None and self.motion_enabled) else None
         self.motion_scope = (
@@ -400,7 +415,12 @@ class HardwareAdapter(RobotAdapter):
             return {"meta": {**meta, "available": False, "error": str(exc)}, "points": None}
 
     def chassis_pulse(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Forward one bounded chassis pulse to the gateway (no retry)."""
+        """Forward one bounded chassis pulse to the gateway (no retry).
+
+        Deprecated legacy path: default-disabled and guarded even for a direct
+        adapter call.
+        """
+        self._legacy_motion_guard()
         if not self.motion_enabled:
             raise HardwareMotionDisabled(
                 "hardware motion is disabled on this adapter"
@@ -409,7 +429,7 @@ class HardwareAdapter(RobotAdapter):
             raise HardwareMotionDisabled("no gateway client configured")
         try:
             return self._gateway.post_json(
-                "/chassis/pulse", body, timeout_s=20.0
+                LEGACY_CHASSIS_PULSE_PATH, body, timeout_s=20.0
             )
         except GatewayError as exc:
             raise AdapterError(
@@ -1113,7 +1133,21 @@ class HardwareAdapter(RobotAdapter):
             )
         return joints, None
 
+    def _legacy_motion_guard(self) -> None:
+        """Refuse the deprecated local motion transport unless enabled.
+
+        ``Settings.legacy_motion_enabled`` is derived from the double switch
+        ``ARMPI_MODE=legacy`` + ``ARMPI_ENABLE_LEGACY_MOTION=1``. The Studio is
+        not a motion authority, so the default adapter has no dispatch path.
+        """
+        if not self.legacy_motion:
+            raise HardwareMotionDisabled(
+                "legacy motion dispatch is disabled by default; forward a "
+                "System-issued intent through /v1 instead"
+            )
+
     def _dispatch_checks(self, targets: list[dict[str, Any]]) -> DispatchResult | None:
+        self._legacy_motion_guard()
         if not self.motion_enabled:
             raise HardwareMotionDisabled(
                 "Hardware motion is disabled; complete mapping verification and obtain Board approval"
@@ -1264,10 +1298,11 @@ class HardwareAdapter(RobotAdapter):
         joints: list[dict[str, Any]],
         duration: float,
     ) -> DispatchResult:
+        self._legacy_motion_guard()
         if self._gateway is None:  # pressed by the motion_enabled guard above
             raise HardwareMotionDisabled("no gateway client configured")
         try:
-            response = self._gateway.post_json("/motion/dispatch", payload)
+            response = self._gateway.post_json(LEGACY_DISPATCH_PATH, payload)
         except GatewayError as exc:
             if exc.status is not None and 400 <= exc.status < 500:
                 return DispatchResult(
@@ -1310,6 +1345,7 @@ class HardwareAdapter(RobotAdapter):
 
     @_locked
     def stop(self, command_id: str) -> StopResult:
+        self._legacy_motion_guard()
         if not self.motion_enabled:
             return StopResult(
                 state=StopState.STOP_UNKNOWN,
@@ -1328,7 +1364,7 @@ class HardwareAdapter(RobotAdapter):
             )
         try:
             response = self._gateway.post_json(
-                "/motion/stop",
+                LEGACY_STOP_PATH,
                 {
                     "command_id": command_id,
                     "client": "armpi-debug-studio-backend",

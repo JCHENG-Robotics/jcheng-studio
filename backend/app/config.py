@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,8 @@ from .domain.enums import Mode
 from .domain.mapping import MappingConfig, load_mapping
 from .domain.motion import SUPERVISED_MOTION_ACK
 from .domain.takeover import TAKEOVER_ACK, load_takeover_config
+
+LOGGER = logging.getLogger(__name__)
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BACKEND_ROOT.parent
@@ -75,6 +78,17 @@ class Settings:
     teleop_status_url: str | None = None
     teleop_status_timeout_s: float = 1.0
     system_stop_enabled: bool = False
+    # Deprecated legacy motion (frozen pre-ecosystem gateway). The double
+    # switch ARMPI_MODE=legacy + ARMPI_ENABLE_LEGACY_MOTION=1 is the only way
+    # to set this; the default runtime never dispatches or stops motion
+    # locally. See app/legacy_motion.py.
+    legacy_motion_enabled: bool = False
+    # System intent (M2b) is opt-in and hardware-only: the Studio forwards the
+    # operator's System-issued lease to /v1 and never acquires one itself.
+    system_intent_enabled: bool = False
+    # Non-fatal startup findings from Settings.from_env (e.g. a mock process
+    # that was configured with a real /v1 gateway and had it cleared).
+    startup_warnings: tuple[str, ...] = ()
     # Offline demo: mock data with an explicit DEMO label. Requires mock mode.
     demo: bool = False
     api_token: str | None = None
@@ -91,9 +105,17 @@ class Settings:
     @classmethod
     def from_env(cls, *, mode: str | None = None, db_path: str | None = None) -> "Settings":
         raw_mode = (mode or os.getenv("ARMPI_MODE", "mock")).strip().lower()
-        if raw_mode not in {Mode.MOCK.value, Mode.HARDWARE.value}:
-            raise ValueError(f"ARMPI_MODE must be 'mock' or 'hardware', got {raw_mode!r}")
+        if raw_mode not in {
+            Mode.MOCK.value,
+            Mode.HARDWARE.value,
+            Mode.LEGACY.value,
+        }:
+            raise ValueError(
+                "ARMPI_MODE must be 'mock', 'hardware' or 'legacy', "
+                f"got {raw_mode!r}"
+            )
         resolved_mode = Mode(raw_mode)
+        warnings: list[str] = []
 
         bind_host = (os.getenv("BIND_HOST", "127.0.0.1") or "127.0.0.1").strip()
         api_token = (os.getenv("ARMPI_BACKEND_TOKEN") or "").strip() or None
@@ -105,9 +127,27 @@ class Settings:
             )
 
         # Hardware motion is impossible in mock mode. In hardware mode it still
-        # requires an explicit opt-in; G1 defaults to false.
+        # requires an explicit opt-in; G1 defaults to false. The deprecated
+        # legacy mode replaces that flag with its own double switch:
+        # ARMPI_MODE=legacy AND ARMPI_ENABLE_LEGACY_MOTION=1.
         motion_flag = _env_bool("ARMPI_HARDWARE_MOTION", False)
-        hardware_motion_enabled = resolved_mode is Mode.HARDWARE and motion_flag
+        legacy_flag = _env_bool("ARMPI_ENABLE_LEGACY_MOTION", False)
+        legacy_motion_enabled = legacy_flag and resolved_mode is Mode.LEGACY
+        if resolved_mode is Mode.LEGACY and not legacy_flag:
+            raise ValueError(
+                "ARMPI_MODE=legacy requires ARMPI_ENABLE_LEGACY_MOTION=1; "
+                "the legacy gateway is deprecated and never starts implicitly"
+            )
+        if legacy_flag and resolved_mode is not Mode.LEGACY:
+            message = (
+                "ARMPI_ENABLE_LEGACY_MOTION=1 is ignored unless "
+                "ARMPI_MODE=legacy; the legacy motion endpoints stay disabled"
+            )
+            warnings.append(message)
+            LOGGER.warning(message)
+        hardware_motion_enabled = (
+            resolved_mode is Mode.HARDWARE and motion_flag
+        ) or (resolved_mode is Mode.LEGACY and legacy_motion_enabled)
         mapping_path = Path(os.getenv("ARMPI_JOINT_MAPPING", str(DEFAULT_MAPPING)))
         gateway_url = os.getenv("ARMPI_GATEWAY_URL") or None
         gateway_token = os.getenv("ARMPI_GATEWAY_TOKEN") or None
@@ -145,7 +185,51 @@ class Settings:
             raise ValueError("JCHENG_TELEOP_STATUS_TIMEOUT_S must be a number") from exc
         if teleop_status_timeout_s <= 0:
             raise ValueError("JCHENG_TELEOP_STATUS_TIMEOUT_S must be positive")
+
+        # A mock process must never reach a real system gateway. Clear the /v1
+        # coordinates (and therefore the system stop and intent transport) and
+        # leave a loud warning instead of silently talking to the robot.
+        if resolved_mode is Mode.MOCK and (gateway_v1_url or gateway_v1_token):
+            message = (
+                "ARMPI_MODE=mock was configured with ARMPI_GATEWAY_V1_URL/"
+                "ARMPI_GATEWAY_V1_TOKEN; both were cleared so the mock process "
+                "cannot call a real system gateway"
+            )
+            warnings.append(message)
+            LOGGER.warning(message)
+            gateway_v1_url = None
+            gateway_v1_token = None
+            gateway_v1_contract_hash = None
+
+        system_intent_flag = _env_bool("ARMPI_SYSTEM_INTENT", False)
+        system_intent_enabled = (
+            system_intent_flag and resolved_mode is Mode.HARDWARE
+        )
+        if system_intent_flag and resolved_mode is not Mode.HARDWARE:
+            message = (
+                "ARMPI_SYSTEM_INTENT=1 requires ARMPI_MODE=hardware; the "
+                "intent endpoints stay disabled"
+            )
+            warnings.append(message)
+            LOGGER.warning(message)
+        elif system_intent_flag and not (gateway_v1_url and gateway_v1_token):
+            message = (
+                "ARMPI_SYSTEM_INTENT=1 requires ARMPI_GATEWAY_V1_URL and "
+                "ARMPI_GATEWAY_V1_TOKEN; intent requests fail closed"
+            )
+            warnings.append(message)
+            LOGGER.warning(message)
+
         system_stop_enabled = _env_bool("ARMPI_SYSTEM_STOP", False)
+        if system_stop_enabled and resolved_mode is Mode.MOCK:
+            message = (
+                "ARMPI_SYSTEM_STOP=1 is not available in mock mode; the "
+                "system stop proxy is disabled so mock cannot reach a real "
+                "system"
+            )
+            warnings.append(message)
+            LOGGER.warning(message)
+            system_stop_enabled = False
         if system_stop_enabled and not (gateway_v1_url and gateway_v1_token):
             raise ValueError(
                 "ARMPI_SYSTEM_STOP=1 requires ARMPI_GATEWAY_V1_URL and "
@@ -242,6 +326,9 @@ class Settings:
             teleop_status_url=teleop_status_url,
             teleop_status_timeout_s=teleop_status_timeout_s,
             system_stop_enabled=system_stop_enabled,
+            legacy_motion_enabled=legacy_motion_enabled,
+            system_intent_enabled=system_intent_enabled,
+            startup_warnings=tuple(warnings),
             demo=demo,
             api_token=api_token,
             urdf_path=Path(os.getenv("ARMPI_URDF_PATH", str(DEFAULT_URDF))),

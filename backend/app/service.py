@@ -108,6 +108,8 @@ class RobotService(
         self.adapter = adapter
         self.store = store
         self._clock = clock or time.monotonic
+        # UI concurrency lock only. The operator's motion lease is issued and
+        # enforced by the system layer; the Studio never holds one.
         self.leases = LeaseManager(self._clock)
         self.tokens = PreviewTokenManager(self._clock)
         self.supervisor = SafetySupervisor(mapping, self.leases)
@@ -172,6 +174,8 @@ class RobotService(
     def _state(self) -> RobotState:
         state = self.adapter.snapshot()
         self._drain_adapter_events()
+        # ``control_owner`` is the local console/session holding the UI
+        # concurrency lock. It is not a motion lease owner.
         state.control_owner = self.leases.owner()
         if self._storage_error:
             state.faults.append(self._storage_fault())
@@ -695,6 +699,13 @@ class RobotService(
 
     # -------------------------------------------------------------- control ops
     def acquire_lease(self, session_id: str, ttl_s: int | None = None) -> dict[str, Any]:
+        """Acquire the local UI concurrency lock.
+
+        The response is deliberately labelled: this lock serializes operator
+        sessions in the console and does not authorize motion. A System-issued
+        motion lease is supplied separately by the operator and enforced by
+        the system gateway.
+        """
         ttl = ttl_s or self.mapping.safety.lease_ttl_s
         with self._lock:
             try:
@@ -702,7 +713,7 @@ class RobotService(
             except LeaseConflict as exc:
                 raise ServiceError(
                     ErrorCode.LEASE_CONFLICT.value,
-                    "control lease is held by another session",
+                    "the local UI concurrency lock is held by another session",
                     status_code=409,
                     details={"owner": exc.owner},
                 ) from exc
@@ -712,7 +723,7 @@ class RobotService(
                         "LeaseAcquired",
                         None,
                         "api",
-                        "control lease acquired",
+                        "local UI concurrency lock acquired",
                         None,
                         {"session_id": session_id, "ttl_s": ttl, "lease_id": lease.lease_id},
                     )
@@ -726,9 +737,12 @@ class RobotService(
                 "acquired_at": lease.acquired_at,
                 "expires_at": lease.expires_at,
                 "ttl_s": lease.ttl_s,
+                "authority": "ui_concurrency_lock",
+                "motion_authorization": False,
             }
 
     def heartbeat(self, lease_id: str, session_id: str, ttl_s: int | None = None) -> dict[str, Any]:
+        """Renew the local UI concurrency lock; no motion authority."""
         with self._lock:
             check = self.leases.heartbeat(lease_id, session_id, ttl_s)
             if not check.ok:
@@ -742,7 +756,7 @@ class RobotService(
                     "LeaseHeartbeat",
                     None,
                     "api",
-                    "control lease renewed",
+                    "local UI concurrency lock renewed",
                     None,
                     {"session_id": session_id, "lease_id": lease_id},
                 )
@@ -753,9 +767,12 @@ class RobotService(
                 "session_id": check.lease.session_id,
                 "expires_at": check.lease.expires_at,
                 "ttl_s": check.lease.ttl_s,
+                "authority": "ui_concurrency_lock",
+                "motion_authorization": False,
             }
 
     def release_lease(self, lease_id: str, session_id: str) -> dict[str, Any]:
+        """Release the local UI concurrency lock; no motion authority."""
         with self._lock:
             check = self.leases.release(lease_id, session_id)
             if not check.ok:
@@ -771,7 +788,7 @@ class RobotService(
                         "LeaseReleased",
                         None,
                         "api",
-                        "control lease released",
+                        "local UI concurrency lock released",
                         None,
                         {"session_id": session_id, "lease_id": lease_id},
                     )

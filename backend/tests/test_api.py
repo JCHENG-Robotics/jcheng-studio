@@ -3,11 +3,26 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.domain.enums import Mode
 from app.main import create_app
+
+
+@pytest.fixture()
+def client(settings: Settings, clock):
+    """Legacy motion is explicitly enabled for this module's compatibility tests.
+
+    The default runtime answers 410 Gone; the default-disabled behavior is
+    covered by ``test_legacy_motion_disabled.py``.
+    """
+    app = create_app(
+        settings=replace(settings, legacy_motion_enabled=True), clock=clock
+    )
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def _acquire(client: TestClient, session_id: str = "s1") -> dict:
@@ -101,11 +116,29 @@ def test_preview_valid_and_invalid(client: TestClient) -> None:
     assert invalid["errors"][0]["code"] == "OUT_OF_LIMIT"
 
 
-def test_execute_requires_lease(client: TestClient) -> None:
+def test_execute_forwards_the_operator_lease_without_a_local_gate(
+    client: TestClient,
+) -> None:
+    """The local UI lock is not motion authority.
+
+    Legacy execute needs no Studio lease: the operator-supplied system lease is
+    recorded and forwarded, and the system layer owns the real check.
+    """
     preview = _preview(client)
-    response = _execute(client, lease_id="missing", preview=preview)
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "NO_LEASE"
+    response = _execute(client, lease_id="system-issued-lease", preview=preview)
+    assert response.status_code == 200, response.text
+    dispatched = [
+        event
+        for event in client.get("/api/events").json()["items"]
+        if event["stage"] == "Dispatched"
+    ]
+    assert dispatched[-1]["details"]["system_lease_id"] == "system-issued-lease"
+
+
+def test_control_acquire_is_a_ui_concurrency_lock(client: TestClient) -> None:
+    lease = _acquire(client)
+    assert lease["authority"] == "ui_concurrency_lock"
+    assert lease["motion_authorization"] is False
 
 
 def test_preview_execute_and_complete(client: TestClient, clock) -> None:
@@ -201,10 +234,10 @@ def test_hardware_mode_rejects_motion(settings: Settings, clock) -> None:
         lease = _acquire(client)
         preview = _preview(client)
         response = _execute(client, lease_id=lease["lease_id"], preview=preview)
-        assert response.status_code == 403
-        body = response.json()
-        assert body["error"]["code"] == "GATE_REJECTED"
-        assert "hardware_motion_enabled" in body["error"]["details"]["blockers"]
+        # Legacy dispatch is default-disabled in hardware mode: the endpoint
+        # answers 410 before the safety gate can run.
+        assert response.status_code == 410
+        assert response.json()["error"]["code"] == "LEGACY_MOTION_DISABLED"
 
         probe = client.post("/api/diagnostics/probe")
         assert probe.status_code == 503

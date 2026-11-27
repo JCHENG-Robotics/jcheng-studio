@@ -13,6 +13,10 @@ class StrEnum(str, Enum):
 class Mode(StrEnum):
     MOCK = "mock"
     HARDWARE = "hardware"
+    # Deprecated isolation mode for the frozen pre-ecosystem gateway. It is
+    # accepted only together with ARMPI_ENABLE_LEGACY_MOTION=1 and is never the
+    # default path.
+    LEGACY = "legacy"
 
 
 class SourceLabel(StrEnum):
