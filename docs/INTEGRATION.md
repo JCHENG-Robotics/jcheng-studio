@@ -15,8 +15,8 @@ it finds:
 |---|---|---|
 | `name` | `jcheng-studio` | application identity |
 | `version` | `0.7.0` | must match `VERSION` |
-| `contract.interfaces` | `>=0.1,<0.2` | pinned contract range |
-| `contract.contract_hash` | `sha256:0b8d72…24b42` | must match the interfaces manifest |
+| `contract.interfaces` | `>=0.2,<0.3` | pinned contract range |
+| `contract.contract_hash` | `sha256:afca22…c35b1c` | must match the interfaces manifest |
 | `safety.class` | `observer` | intent forwarder; the system layer executes motion |
 | `safety.scopes` | `["arm", "gripper"]` | intent scopes; the Studio holds no authority |
 | `safety.requires_lease` | `true` | the operator supplies a system-issued lease; the Studio is never the lease holder |
