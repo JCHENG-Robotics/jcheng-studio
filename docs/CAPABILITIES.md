@@ -41,6 +41,11 @@ and the source is labelled `SIMULATION` with a DEMO banner. `ARMPI_DEMO=1`
 requires mock mode; hardware mode never falls back to simulated data. Demo
 mode never executes motion.
 
+Mock mode is read-only for motion in this build: legacy dispatch is disabled by
+default, so the joints/task pages render previews and explain the disabled
+execution (`410 Gone`). A mock process also clears any `/v1` gateway URL/token
+at startup and cannot call a real system.
+
 ```bash
 tools/studio/start_studio.sh --demo
 # http://127.0.0.1:8000/#/capabilities

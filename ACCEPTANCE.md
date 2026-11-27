@@ -1,7 +1,9 @@
 # Acceptance report — jcheng-studio
 
 > Status: **pass** as of 2026-11-26 for v0.8.0 (console port + M1a REST +
-> M1b WebSocket + M2a sessions + M2b intent + M3 replay + M5 teleop panel).
+> M1b WebSocket + M2a sessions + M2b intent + M3 replay + M5 teleop panel),
+> with the 2026-11-27 authority-hardening pass (legacy motion default-disabled;
+> System-only intent and stop; local lease reduced to a UI concurrency lock).
 > Operator: JerichoCheng. Reviewer: pending.
 > Scope: the ported backend and UI, the read-only `/v1` REST and WebSocket
 > clients, the M2a session store, the M2b intent path, the M3 offline replay and
@@ -29,6 +31,7 @@
 | M5 teleop panel status + system stop proxy | `backend/tests/test_teleop_panel.py` | L2 | pass (10 tests; mock gateway run) | `evidence/20261126_teleop_panel/` |
 | Capability registry (19 fixed rows) | `backend/tests/test_capabilities.py` | L2 | pass (6 tests; hardware read-only + demo probes) | `evidence/20261127_capabilities/` |
 | Offline demo mode (`--demo`) | `backend/tests/test_capabilities.py` | L1 | pass; demo requires mock and never executes motion | `evidence/20261127_capabilities/demo-capabilities.json` |
+| Legacy authority hardening | `backend/tests/test_legacy_motion_disabled.py` | L1/L2 | pass (12 tests; mock/loopback only) | `backend/tests/test_legacy_motion_disabled.py` |
 | Playwright browser E2E | `npm run test:e2e` | L3 | not run in this port | — |
 | Legacy gateway integration | — | L2/L3 | not exercised | — |
 | Hardware | — | L5 | not applicable; no session authorized | — |
@@ -67,6 +70,11 @@
 | M5 status and stop URLs are loopback-only; the browser never holds the gateway token | L0/L2 | `backend/app/adapters/loopback.py`; `backend/tests/test_teleop_panel.py` |
 | The ported configs resolve without the baseline workspace | L0 | `configs/takeover.yaml`; `configs/calibration/` |
 | The vendor-derived URDF is not shipped; the visual tests use a project fixture | L0 | `backend/tests/fixtures/armpi_ultra_test.urdf`; `docs/MIGRATION.md` |
+| `POST /api/motion/execute`, `/api/chassis/pulse` and `/api/motion/stop` answer `410 Gone` by default and never call the adapter | L2 | `backend/tests/test_legacy_motion_disabled.py` |
+| The legacy dispatch/chassis/stop paths are hard-blocked in `MotionOperations` and `HardwareAdapter`; no default module names `/motion/dispatch`; legacy motion is enabled only by the `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1` double switch | L1/L2 | `backend/app/legacy_motion.py`; `backend/tests/test_legacy_motion_disabled.py` |
+| Intent is refused outside hardware mode (`409`) and without `ARMPI_SYSTEM_INTENT=1` (`403`); the only stop path is the system `/v1/motion/stop` proxy | L2 | `backend/tests/test_legacy_motion_disabled.py`; `backend/tests/test_teleop_panel.py` |
+| The local `/api/control/*` lock is a UI concurrency lock (`motion_authorization: false`); motion ops contain no `self.leases.check` and the safety report marks the check advisory | L1/L2 | `backend/tests/test_legacy_motion_disabled.py`; `backend/app/safety/lease.py` |
+| A mock process cannot call a real system: `Settings.from_env` clears the `/v1` URL/token, disables the system stop and records a startup warning | L1 | `backend/tests/test_legacy_motion_disabled.py` |
 
 ## 3. Not verified
 
@@ -77,7 +85,8 @@
 | Playwright browser E2E | Not run in this port | UI regressions are not yet caught in CI |
 | Teleop panel browser E2E and a real teleop process | Backend routes tested; panel is build-verified; the live run used the demo harness | UI/staleness rendering is not browser-tested |
 | Legacy gateway integration | No gateway in this repository | The ported hardware path is unproven here |
-| Lease acquisition/ownership by the Studio | By design it does not acquire or hold a lease; the operator supplies one | No end-to-end lease UI in this console yet |
+| Legacy motion under the double switch | Mock adapter only in this pass; the frozen gateway is not in this repository | The deprecated transport is unproven here and is not a supported default |
+| Lease acquisition/ownership by the Studio | By design it acquires no motion lease; `/api/control/*` is a UI concurrency lock and the operator supplies the System lease | No end-to-end lease UI in this console yet |
 | Hardware behavior | No session, no runtime | Nothing to validate on the robot |
 
 ## 4. Limitations
@@ -92,7 +101,14 @@
   bounded-reconnect reader; it does not persist a live session.
 - The legacy HTTP adapter (`/health`, `X-Armpi-Token`) is retained only to run
   the ported console against an already-deployed frozen gateway. It is not a
-  compatibility shim for the `/v1` contract and is not admitted.
+  compatibility shim for the `/v1` contract and is not admitted. Its motion
+  dispatch/chassis/stop path is default-disabled, answers `410 Gone` at the
+  HTTP surface, is hard-blocked in the service/adapter, and is reachable only
+  through the deprecated `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`
+  switch. The classes were not deleted in this pass.
+- The local `/api/control/*` lease is a UI concurrency lock, not a motion
+  authorization; motion requests only validate and forward the operator's
+  System-issued `lease_id`.
 - The production URDF is vendor-derived and is not shipped. The visual
   workbench needs `ARMPI_URDF_PATH`; tests use a project-authored fixture.
 - The M2a session store is separate from the ported legacy SQLite event log;
