@@ -6,6 +6,26 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Added
+
+- Always-visible capability registry: `GET /api/capabilities` and the
+  `/capabilities` page list 19 pages/integrations/data sources with a live
+  status (`available`, `read_only`, `degraded`, `not_configured`, `blocked`,
+  `offline`). The list shape never changes when a dependency is missing, so an
+  operator can always see what the console can do and why a feature is not
+  ready.
+- Offline demo mode: `tools/studio/start_studio.sh --demo` / `ARMPI_DEMO=1`
+  runs the mock adapter with an explicit DEMO banner and an `/api/health`
+  `demo` flag. It requires mock mode and never executes motion.
+- The capability page falls back to a static catalog when the backend is
+  unreachable, so every surface stays visible even with no API.
+
+### Changed
+
+- `/api/health` reports `demo`; backend suite is now 220 tests. Mode-dependent
+  sections stay rendered: mock fault injection and the `/v1` diagnostics card
+  remain visible in hardware mode with a disabled state and a reason.
+
 ## [0.8.0] — 2026-11-26
 
 ### Added

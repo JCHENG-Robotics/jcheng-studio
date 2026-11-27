@@ -58,12 +58,17 @@ repository's boundary. The complete source and exclusion record is in
 | M2a operator-session store and authorization gate | `backend/app/sessions/`; Diagnostics page | Complete; SQLite outside git, seal/export tested |
 | M2b joint/gripper intent forwarding | `backend/app/adapters/gateway_v1_intent.py`; Diagnostics page | Complete; operator-supplied lease, mock validate/execute verified |
 | M3 offline session replay and commanded/measured analysis | `backend/app/analysis/session_replay.py`; Diagnostics page | Complete; provenance-labelled replay and hashed export |
-| React/TypeScript console with eight pages | `frontend/` | Ported; production build passes |
+| React/TypeScript console with eleven pages, including the capability registry | `frontend/` | Ported; production build passes |
+| Capability registry (always-visible status for every surface) | `backend/app/application/capability_ops.py`; `/capabilities` page | Complete; hardware read-only and demo probes recorded |
+| Offline demo mode | `tools/studio/start_studio.sh --demo`; `ARMPI_DEMO=1` | Complete; mock data labelled `SIMULATION`, no motion |
 | Joint mapping, pose/task contract and visual model | `configs/` | Ported |
 | Hand-eye calibration used by the task contract | `configs/calibration/` | Ported (2026-11-18 TSAI result) |
 | Operator runners | `tools/` and `tools/studio/` | Ported; operator-run only |
 | G1–G8.1 and E7 design records | `docs/legacy/` | Migrated records; links point at the baseline |
 | Product requirements | `docs/PRD.md` | Migrated PRD v1.0 |
+
+[`docs/CAPABILITIES.md`](docs/CAPABILITIES.md) records the always-visible
+guarantees, the demo mode and the watchdog persistence.
 
 Not ported: the robot-side `ros2_gateway/` (ROS 2/DDS, L2), the runtime
 `data/studio.db`, the hardware evidence bundles and the vendor-derived URDF.
@@ -155,6 +160,9 @@ cd frontend && npm ci && npm run build; cd ..
 
 # Start the console (mock by default).
 tools/studio/start_studio.sh
+
+# Offline demo: every page with mock data, labelled DEMO, no motion.
+tools/studio/start_studio.sh --demo
 ```
 
 The gate checks the document set, the admission manifest, relative links,
@@ -167,7 +175,9 @@ domain.
 | Claim | Status | Evidence |
 |---|---|---|
 | Repository gate, manifest and document set pass | Verified (L0, 2026-11-26) | [`evidence/20261126_replay/`](evidence/20261126_replay/README.md) |
-| Backend suite: 191 passed | Verified (L1, 2026-11-26) | [`evidence/20261126_replay/backend-tests.txt`](evidence/20261126_replay/backend-tests.txt) |
+| Backend suite: 220 passed | Verified (L1, 2026-11-27) | [`evidence/20261127_capabilities/backend-tests.txt`](evidence/20261127_capabilities/backend-tests.txt) |
+| Capability registry keeps all 19 rows visible in hardware read-only and demo | Verified (L2, hardware read-only + demo, 2026-11-27) | [`backend/tests/test_capabilities.py`](backend/tests/test_capabilities.py); [evidence](evidence/20261127_capabilities/README.md) |
+| Offline demo mode requires mock, is labelled DEMO and never executes motion | Verified (L1, 2026-11-27) | [`backend/tests/test_capabilities.py`](backend/tests/test_capabilities.py); [demo payload](evidence/20261127_capabilities/demo-capabilities.json) |
 | Read-only `/v1` REST client (health, contract, state, safety) | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1.py`](backend/tests/test_gateway_v1.py); [evidence](evidence/20261126_gateway_v1/README.md) |
 | Read-only `/v1/ws/state` subscription | Verified (L2, mock gateway, 2026-11-26) | [`backend/tests/test_gateway_v1_stream.py`](backend/tests/test_gateway_v1_stream.py); [evidence](evidence/20261126_gateway_ws/README.md) |
 | WS interop with the real `jcheng-system` read-only gateway | Verified (L2, loopback, 2026-11-26) | [`evidence/20261126_gateway_ws/integration.txt`](evidence/20261126_gateway_ws/integration.txt) |

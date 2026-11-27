@@ -15,6 +15,7 @@ from dataclasses import replace
 from typing import Any, Callable
 
 from .adapters.base import RobotAdapter
+from .application.capability_ops import CapabilityOperations
 from .application.diagnostics_ops import DiagnosticsOperations
 from .application.experiment_ops import ExperimentOperations
 from .application.gateway_ops import GatewayV1Operations
@@ -90,6 +91,7 @@ class RobotService(
     SessionOperations,
     GatewayV1Operations,
     TeleopOperations,
+    CapabilityOperations,
 ):
     def __init__(
         self,
@@ -644,6 +646,7 @@ class RobotService(
                 schema_version=self.settings.schema_version,
                 source_label=state.source_label,
                 capabilities=state.capabilities,
+                demo=self.settings.demo,
             )
         )
 

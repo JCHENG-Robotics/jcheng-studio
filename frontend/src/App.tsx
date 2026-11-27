@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { useRobotStream } from "./hooks/useRobotStream";
+import { CapabilitiesPage } from "./pages/Capabilities";
 import { Dashboard } from "./pages/Dashboard";
 import { DiagnosticsPage } from "./pages/Diagnostics";
 import { EventTimeline } from "./pages/EventTimeline";
@@ -18,6 +19,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Dashboard />} />
+        <Route path="capabilities" element={<CapabilitiesPage />} />
         <Route path="joints" element={<JointControl />} />
         <Route path="teleop" element={<TeleopPanel />} />
         <Route path="task" element={<TaskTakeover />} />

@@ -1,6 +1,35 @@
 export type Mode = "mock" | "hardware";
 export type SourceLabel = "LIVE" | "SIMULATION" | "REPLAY";
 
+/** Capability registry status. The list shape is fixed; only this changes. */
+export type CapabilityStatus =
+  | "available"
+  | "read_only"
+  | "degraded"
+  | "not_configured"
+  | "blocked"
+  | "offline";
+
+export interface CapabilityFeature {
+  id: string;
+  title: string;
+  route: string;
+  category: string;
+  description: string;
+  status: CapabilityStatus;
+  detail: string;
+}
+
+export interface CapabilitiesPayload {
+  schema_version: number;
+  generated_at: string;
+  mode: Mode;
+  demo: boolean;
+  source_label: SourceLabel;
+  features: CapabilityFeature[];
+  summary: Record<CapabilityStatus, number>;
+}
+
 export interface Capabilities {
   hardware_motion: boolean;
   hardware_read: boolean;
