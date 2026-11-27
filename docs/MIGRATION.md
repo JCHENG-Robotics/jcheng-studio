@@ -107,7 +107,9 @@ and [`evidence/20261126_replay/`](../evidence/20261126_replay/README.md).
    `/v1/motion/validate` and `/v1/motion/execute` with an operator-supplied
    system lease. The Studio never acquires or holds a lease. From 2026-11-27
    the intent path is hardware-only and opt-in (`ARMPI_SYSTEM_INTENT=1`); the
-   legacy local dispatch path is default-disabled.
+   legacy local dispatch path is default-disabled, and its deprecated
+   double-switch mode is operator-only (not system-authorized) and scheduled
+   for removal.
 3. **M3 — offline replay (complete 2026-11-26).** Sessions replay offline with
    `commanded` and gateway `measured` values separated, a delta only when the
    joint order was recorded, and a hashed provenance export. **M4 — supervised

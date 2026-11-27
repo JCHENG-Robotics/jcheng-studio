@@ -11,6 +11,16 @@ endpoints remain for the operator's migration window, but they carry no motion
 authority and every entry point fails with HTTP 410 Gone unless the operator
 explicitly re-enables the deprecated path.
 
+**Operator-only, not system-authorized.** The frozen gateway has no lease
+endpoint, so the double-switch mode cannot validate a System lease: any
+non-empty ``lease_id`` is accepted as an opaque operator reference and only
+recorded for audit. An empty or whitespace-only lease is rejected locally with
+HTTP 400 before dispatch. This mode is not an authorization or safety
+guarantee, must not be used for normal robot operation, and must not be
+described as safe. It is scheduled for removal; the residual boundary is
+tracked by a formal boundary waiver (``B4 studio legacy_motion.py``) with an
+expiry and a named removal owner.
+
 The single authoritative intent and stop paths are:
 
 - ``POST /api/session/intent/joint`` and ``.../gripper`` with a System-issued

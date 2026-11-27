@@ -67,7 +67,10 @@ class PreviewIn(BaseModel):
 
 
 class ExecuteIn(PreviewIn):
-    lease_id: str = Field(min_length=1, max_length=128)
+    # Deliberately no min_length: an empty/whitespace system lease is a
+    # semantic rejection (400 from MotionOperations), not a schema error, and
+    # it must never reach dispatch.
+    lease_id: str = Field(max_length=128)
     preview_token: str = Field(min_length=1, max_length=256)
     command_id: str = Field(min_length=1, max_length=128)
     idempotency_key: str | None = Field(default=None, max_length=256)
@@ -449,7 +452,8 @@ def execute(
 
 class ChassisPulseIn(BaseModel):
     session_id: str = Field(min_length=1, max_length=128)
-    lease_id: str = Field(min_length=1, max_length=128)
+    # Same rule as ExecuteIn: the empty lease is rejected semantically (400).
+    lease_id: str = Field(max_length=128)
     vx: float
     vy: float
     duty: float

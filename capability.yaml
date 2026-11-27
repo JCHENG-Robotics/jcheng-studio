@@ -9,11 +9,15 @@
 # not a ROS interface and its motion dispatch path is removed from the default
 # runtime: `/api/motion/execute`, `/api/chassis/pulse` and `/api/motion/stop`
 # answer HTTP 410 Gone by default and are reachable only through the deprecated
-# double switch `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`. This is
-# default-disable and isolation, not deletion: legacy motion is not available
-# in the default or hardware mode and no console surface may advertise it. The
-# empty runtime surface is deliberate: the console must not claim a transport
-# it does not serve.
+# double switch `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`. That
+# double-switch mode is operator-only, not system-authorized (the frozen
+# gateway cannot validate a System lease), rejects an empty lease with HTTP
+# 400, is not a safe or normal-operation path, and is scheduled for removal
+# under a boundary waiver for `B4 studio legacy_motion.py` (expiry + removal
+# owner). This is default-disable and isolation, not deletion: legacy motion is
+# not available in the default or hardware mode and no console surface may
+# advertise it. The empty runtime surface is deliberate: the console must not
+# claim a transport it does not serve.
 #
 # The permanent division of authority is already fixed: the Studio talks to the
 # system gateways over HTTP/WS only, forwards operator *intent*, and never

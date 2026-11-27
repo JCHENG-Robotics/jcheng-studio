@@ -101,6 +101,25 @@ hardware modes cannot dispatch, pulse or locally stop motion.
   `ARMPI_MODE=mock` with `ARMPI_GATEWAY_V1_URL` / `ARMPI_GATEWAY_V1_TOKEN`
   clears both values, disables the system stop, and records a startup warning.
 
+#### Legacy mode is operator-only, not system-authorized
+
+The double-switch mode is a deprecated **operator maintenance path**, not an
+authorized or safety-checked motion path.
+
+- The frozen gateway has **no lease validator**. The Studio therefore cannot
+  check a System lease in legacy mode: any non-empty `lease_id` is accepted as
+  an opaque operator reference and only recorded for audit.
+- An empty or whitespace-only `lease_id` is rejected locally with HTTP `400`
+  (`BAD_REQUEST`) before any adapter call; nothing is dispatched and no
+  `Dispatched` event is written.
+- Do not claim this mode is safe, authorized, or suitable for normal robot
+  operation. It is only for the migration window and carries no deadman,
+  lease, system limit or stop-latch guarantee from the Studio.
+- **Scheduled for removal.** The residual `backend/app/legacy_motion.py`
+  boundary is tracked by a formal boundary waiver (`B4 studio legacy_motion.py`)
+  with an expiry date and a named removal owner; this round keeps it
+  default-disabled and does not move it. No new feature may depend on it.
+
 **Migration.** Use the single intent path and the single stop path:
 
 1. `POST /api/session/intent/joint` or `.../gripper` with a System-issued

@@ -47,6 +47,16 @@ All notable changes to this project are documented here. Format based on
   shows the same check as advisory (`blocking: false`). Motion requests only
   validate and forward the operator's System-issued `lease_id`; the system
   layer owns the check.
+- **The deprecated legacy mode is operator-only, not system-authorized.** The
+  frozen gateway has no lease validator, so a non-empty `lease_id` is accepted
+  as an opaque operator reference and only recorded; it is not a safety or
+  authorization guarantee and must not be described as safe or used for normal
+  robot operation. An empty or whitespace-only `lease_id` on the legacy
+  execute/chassis endpoints is now rejected locally with HTTP `400`
+  (`BAD_REQUEST`) before any adapter call (previously the schema returned 422),
+  and no `Dispatched` event is written. The path is scheduled for removal and
+  tracked by the formal boundary waiver `B4 studio legacy_motion.py` (expiry +
+  removal owner).
 - `/api/session/intent/joint|gripper` are hardware-only and opt-in. Outside
   `ARMPI_MODE=hardware` they answer `409 SYSTEM_INTENT_REQUIRES_HARDWARE`; with
   `ARMPI_SYSTEM_INTENT` unset they answer `403 SYSTEM_INTENT_DISABLED`. The
@@ -57,9 +67,26 @@ All notable changes to this project are documented here. Format based on
 - `/api/capabilities` tells the truth about the new default: in mock/hardware
   mode the joints/task/motion rows are `read_only` because legacy motion is
   disabled, instead of claiming a complete mock execution surface.
-- `/api/health` reports `demo`; backend suite is now 220 tests. Mode-dependent
+- `/api/health` reports `demo`; backend suite is now 222 tests. Mode-dependent
   sections stay rendered: mock fault injection and the `/v1` diagnostics card
   remain visible in hardware mode with a disabled state and a reason.
+
+### Tests
+
+- The existing suites were updated to the new behavior, not weakened.
+  `test_api.py` explicitly opts into the deprecated runner and asserts that the
+  operator lease is recorded; the original `GATE_REJECTED` refusal is retained
+  by `test_hardware_mode_gate_still_rejects_with_legacy_enabled` and by
+  `test_hardware_motion.py`. `test_capabilities.py` changes `available` to
+  `read_only` and adds a detail assertion. The task/pose/hardware tests only
+  opt into the deprecated runner; their original assertions are unchanged.
+  No safety, refusal or dispatch assertion was removed.
+- New coverage: `test_legacy_empty_lease_is_rejected_and_never_dispatched`
+  proves an empty/whitespace legacy lease is rejected with 400/403, the adapter
+  is never called, and no `Dispatched` event exists. The default-disabled,
+  intent-gate, system-stop, double-switch, mock/v1-guard and static
+  `/motion/dispatch` assertions remain in
+  `backend/tests/test_legacy_motion_disabled.py`.
 
 ### Deprecated
 
@@ -70,8 +97,12 @@ All notable changes to this project are documented here. Format based on
 
 ### Not included
 
-- No legacy class, module or endpoint was deleted in this pass; only the
-  default path, authority and documentation changed.
+- No legacy class, module or endpoint was deleted or moved in this pass; only
+  the default path, the empty-lease rejection, the authority and the
+  documentation changed.
+- The formal `.github/boundary-waivers.yaml` entry (`B4 studio legacy_motion.py`,
+  expiry + removal owner) is added by the QA follow-up. This pass keeps the code
+  default-disabled and does not move it.
 - No system, mobile or interface change; no hardware session; no robot
   connection.
 

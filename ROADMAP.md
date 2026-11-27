@@ -54,9 +54,14 @@
    default-disabled and are not admitted by `capability.yaml`. The legacy
    motion endpoints now answer `410 Gone` unless
    `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`, and their dispatch is
-   hard-blocked in the service and adapter. Task/takeover endpoints still
-   needed by the console must be added to `jcheng-interfaces` and
-   `jcheng-system` first.
+   hard-blocked in the service and adapter. That double-switch mode is
+   operator-only and not system-authorized (the frozen gateway cannot validate
+   a System lease); an empty lease is rejected with `400`, and it is not a
+   safe or normal-operation path. The residual `legacy_motion.py` boundary is
+   scheduled for removal and tracked by the formal boundary waiver
+   `B4 studio legacy_motion.py` (expiry + removal owner). Task/takeover
+   endpoints still needed by the console must be added to `jcheng-interfaces`
+   and `jcheng-system` first.
 
 ## Out of scope
 

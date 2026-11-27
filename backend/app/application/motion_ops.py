@@ -43,11 +43,14 @@ class MotionOperations:
 
     @staticmethod
     def _operator_system_lease(lease_id: str | None) -> str:
-        """Validate the operator-supplied system lease reference.
+        """Validate the operator-supplied lease reference for the legacy path.
 
         The Studio never acquires, renews, releases or checks a motion lease.
-        The string is opaque here and travels to the system layer, which owns
-        the authority. Only presence/whitespace is checked locally.
+        In the deprecated legacy mode the frozen gateway has no lease
+        validator, so this only rejects an empty/whitespace reference with
+        HTTP 400 and records a non-empty one as an opaque operator reference.
+        It is **operator-only, not system authorization**, and the legacy path
+        is scheduled for removal.
         """
         value = (lease_id or "").strip()
         if not value:

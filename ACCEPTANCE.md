@@ -31,7 +31,7 @@
 | M5 teleop panel status + system stop proxy | `backend/tests/test_teleop_panel.py` | L2 | pass (10 tests; mock gateway run) | `evidence/20261126_teleop_panel/` |
 | Capability registry (19 fixed rows) | `backend/tests/test_capabilities.py` | L2 | pass (6 tests; hardware read-only + demo probes) | `evidence/20261127_capabilities/` |
 | Offline demo mode (`--demo`) | `backend/tests/test_capabilities.py` | L1 | pass; demo requires mock and never executes motion | `evidence/20261127_capabilities/demo-capabilities.json` |
-| Legacy authority hardening | `backend/tests/test_legacy_motion_disabled.py` | L1/L2 | pass (12 tests; mock/loopback only) | `backend/tests/test_legacy_motion_disabled.py` |
+| Legacy authority hardening | `backend/tests/test_legacy_motion_disabled.py` | L1/L2 | pass (13 tests; mock/loopback only) | `backend/tests/test_legacy_motion_disabled.py` |
 | Playwright browser E2E | `npm run test:e2e` | L3 | not run in this port | — |
 | Legacy gateway integration | — | L2/L3 | not exercised | — |
 | Hardware | — | L5 | not applicable; no session authorized | — |
@@ -72,6 +72,7 @@
 | The vendor-derived URDF is not shipped; the visual tests use a project fixture | L0 | `backend/tests/fixtures/armpi_ultra_test.urdf`; `docs/MIGRATION.md` |
 | `POST /api/motion/execute`, `/api/chassis/pulse` and `/api/motion/stop` answer `410 Gone` by default and never call the adapter | L2 | `backend/tests/test_legacy_motion_disabled.py` |
 | The legacy dispatch/chassis/stop paths are hard-blocked in `MotionOperations` and `HardwareAdapter`; no default module names `/motion/dispatch`; legacy motion is enabled only by the `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1` double switch | L1/L2 | `backend/app/legacy_motion.py`; `backend/tests/test_legacy_motion_disabled.py` |
+| The legacy double-switch mode is operator-only, not system-authorized (the frozen gateway cannot validate a System lease); an empty/whitespace lease is rejected with `400` and never dispatched, and the path is scheduled for removal under boundary waiver `B4 studio legacy_motion.py` | L1/L2 | `backend/tests/test_legacy_motion_disabled.py`; `docs/INTEGRATION.md#legacy-motion-deprecation` |
 | Intent is refused outside hardware mode (`409`) and without `ARMPI_SYSTEM_INTENT=1` (`403`); the only stop path is the system `/v1/motion/stop` proxy | L2 | `backend/tests/test_legacy_motion_disabled.py`; `backend/tests/test_teleop_panel.py` |
 | The local `/api/control/*` lock is a UI concurrency lock (`motion_authorization: false`); motion ops contain no `self.leases.check` and the safety report marks the check advisory | L1/L2 | `backend/tests/test_legacy_motion_disabled.py`; `backend/app/safety/lease.py` |
 | A mock process cannot call a real system: `Settings.from_env` clears the `/v1` URL/token, disables the system stop and records a startup warning | L1 | `backend/tests/test_legacy_motion_disabled.py` |
@@ -105,7 +106,13 @@
   dispatch/chassis/stop path is default-disabled, answers `410 Gone` at the
   HTTP surface, is hard-blocked in the service/adapter, and is reachable only
   through the deprecated `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`
-  switch. The classes were not deleted in this pass.
+  switch. That mode is **operator-only, not system-authorized**: the frozen
+  gateway has no lease validator, so a non-empty `lease_id` is accepted as an
+  opaque operator reference (not a safety or authorization check), and an
+  empty/whitespace lease is rejected with `400` before dispatch. It is not a
+  safe or normal-operation path and is scheduled for removal under boundary
+  waiver `B4 studio legacy_motion.py`. The classes were not deleted or moved in
+  this pass.
 - The local `/api/control/*` lease is a UI concurrency lock, not a motion
   authorization; motion requests only validate and forward the operator's
   System-issued `lease_id`.

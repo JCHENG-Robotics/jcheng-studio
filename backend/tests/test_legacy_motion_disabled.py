@@ -107,6 +107,79 @@ def test_legacy_endpoints_answer_410_by_default(client: TestClient) -> None:
         assert response.json()["error"]["code"] == "LEGACY_MOTION_DISABLED"
 
 
+def test_legacy_empty_lease_is_rejected_and_never_dispatched(
+    settings: Settings, clock, monkeypatch
+) -> None:
+    """Legacy mode has no system lease validation, so an empty lease must fail.
+
+    The frozen gateway cannot check a System lease: a non-empty operator string
+    is accepted as-is (operator-only, not system-authorized). An empty or
+    whitespace-only lease is therefore rejected locally with 400 before any
+    adapter call.
+    """
+    app = create_app(
+        settings=replace(settings, legacy_motion_enabled=True), clock=clock
+    )
+    with TestClient(app) as client:
+        adapter = client.app.state.service.adapter
+
+        def _must_not_dispatch(*_args: Any, **_kwargs: Any):
+            raise AssertionError("legacy motion was dispatched with an empty lease")
+
+        monkeypatch.setattr(adapter, "dispatch", _must_not_dispatch)
+        monkeypatch.setattr(adapter, "dispatch_profile", _must_not_dispatch)
+        monkeypatch.setattr(adapter, "chassis_pulse", _must_not_dispatch)
+
+        preview = client.post(
+            "/api/motion/preview",
+            json={
+                "session_id": "s1",
+                "targets": [
+                    {"joint": "joint1", "target_rad": 0.05, "duration_s": 1.0}
+                ],
+            },
+        )
+        assert preview.status_code == 200, preview.text
+        assert preview.json()["valid"] is True, preview.text
+
+        for index, empty_lease in enumerate(("", "   ")):
+            response = client.post(
+                "/api/motion/execute",
+                headers={"Idempotency-Key": f"empty-lease-{index}"},
+                json={
+                    "session_id": "s1",
+                    "lease_id": empty_lease,
+                    "preview_token": preview.json()["preview_token"],
+                    "command_id": preview.json()["command_id"],
+                    "targets": [
+                        {"joint": "joint1", "target_rad": 0.05, "duration_s": 1.0}
+                    ],
+                },
+            )
+            assert response.status_code in (400, 403), response.text
+            assert response.json()["error"]["code"] in (
+                "BAD_REQUEST",
+                "NO_LEASE",
+                "MISSING_SYSTEM_LEASE",
+            )
+
+        chassis = client.post(
+            "/api/chassis/pulse",
+            json={**CHASSIS_BODY, "lease_id": ""},
+        )
+        assert chassis.status_code in (400, 403), chassis.text
+        assert chassis.json()["error"]["code"] in (
+            "BAD_REQUEST",
+            "NO_LEASE",
+            "MISSING_SYSTEM_LEASE",
+        )
+
+        stages = [
+            event["stage"] for event in client.get("/api/events").json()["items"]
+        ]
+        assert "Dispatched" not in stages
+
+
 def test_non_legacy_service_calls_never_touch_the_adapter(
     settings: Settings, mapping, clock
 ) -> None:

@@ -116,13 +116,15 @@ def test_preview_valid_and_invalid(client: TestClient) -> None:
     assert invalid["errors"][0]["code"] == "OUT_OF_LIMIT"
 
 
-def test_execute_forwards_the_operator_lease_without_a_local_gate(
+def test_legacy_execute_accepts_an_operator_lease_without_system_validation(
     client: TestClient,
 ) -> None:
-    """The local UI lock is not motion authority.
+    """The legacy gateway has no lease validator, so this is operator-only.
 
-    Legacy execute needs no Studio lease: the operator-supplied system lease is
-    recorded and forwarded, and the system layer owns the real check.
+    This test is a behavior update, not a relaxed assertion: it asserts the new
+    contract that the local UI lock is not motion authority and that the
+    operator-supplied string is recorded for audit. The empty/whitespace lease
+    is rejected with 400 in ``test_legacy_motion_disabled.py``.
     """
     preview = _preview(client)
     response = _execute(client, lease_id="system-issued-lease", preview=preview)
@@ -242,3 +244,29 @@ def test_hardware_mode_rejects_motion(settings: Settings, clock) -> None:
         probe = client.post("/api/diagnostics/probe")
         assert probe.status_code == 503
         assert probe.json()["error"]["code"] == "NOT_IMPLEMENTED"
+
+
+def test_hardware_mode_gate_still_rejects_with_legacy_enabled(
+    settings: Settings, clock
+) -> None:
+    """The original GATE_REJECTED assertion is preserved, not weakened.
+
+    Enabling the deprecated runner (a test seam; ``from_env`` requires
+    ``ARMPI_MODE=legacy``) still goes through the safety gate: with hardware
+    motion off, execution is refused with the same blocker as before.
+    """
+    hardware = replace(
+        settings,
+        mode=Mode.HARDWARE,
+        legacy_motion_enabled=True,
+        db_path=settings.db_path.with_name("hardware-legacy.db"),
+    )
+    app = create_app(settings=hardware, clock=clock)
+    with TestClient(app) as client:
+        lease = _acquire(client)
+        preview = _preview(client)
+        response = _execute(client, lease_id=lease["lease_id"], preview=preview)
+        assert response.status_code == 403
+        body = response.json()
+        assert body["error"]["code"] == "GATE_REJECTED"
+        assert "hardware_motion_enabled" in body["error"]["details"]["blockers"]
