@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { useRobotStream } from "./hooks/useRobotStream";
+import { CapabilitiesPage } from "./pages/Capabilities";
 import { Dashboard } from "./pages/Dashboard";
 import { DiagnosticsPage } from "./pages/Diagnostics";
 import { EventTimeline } from "./pages/EventTimeline";
@@ -8,6 +9,7 @@ import { ExperimentLab } from "./pages/ExperimentLab";
 import { JointControl } from "./pages/JointControl";
 import { SettingsPage } from "./pages/Settings";
 import { TaskTakeover } from "./pages/TaskTakeover";
+import { TeleopPanel } from "./pages/Teleop";
 import { TrajectoryInspector } from "./pages/TrajectoryInspector";
 import { VisualWorkbench } from "./pages/VisualWorkbench";
 
@@ -17,7 +19,9 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Dashboard />} />
+        <Route path="capabilities" element={<CapabilitiesPage />} />
         <Route path="joints" element={<JointControl />} />
+        <Route path="teleop" element={<TeleopPanel />} />
         <Route path="task" element={<TaskTakeover />} />
         <Route path="diagnostics" element={<DiagnosticsPage />} />
         <Route path="trajectory" element={<TrajectoryInspector />} />

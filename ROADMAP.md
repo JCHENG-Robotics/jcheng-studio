@@ -1,8 +1,9 @@
 # jcheng-studio roadmap
 
-> Status: **v0.7.0** as of 2026-11-26. The frozen console is ported; the
-> read-only `/v1` REST/WS clients, the M2a session store, the M2b intent path
-> and the M3 offline replay are verified. Hardware acceptance is not
+> Status: **v0.8.0** as of 2026-11-26. The frozen console is ported; the
+> read-only `/v1` REST/WS clients, the M2a session store, the M2b intent path,
+> the M3 offline replay and the M5 teleop panel (status + opt-in system stop)
+> are verified against local/mock endpoints. Hardware acceptance is not
 > implemented.
 
 ## Current state
@@ -19,6 +20,7 @@
 | M2a operator session store and authorization gate | Complete (2026-11-26) | [`backend/app/sessions/store.py`](backend/app/sessions/store.py); [`docs/SESSIONS.md`](docs/SESSIONS.md); `evidence/20261126_sessions/` |
 | M2b console `/v1` joint/gripper intent | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1_intent.py`](backend/app/adapters/gateway_v1_intent.py); `evidence/20261126_intent/` |
 | M3 offline session replay and commanded/measured analysis | Complete (2026-11-26) | [`backend/app/analysis/session_replay.py`](backend/app/analysis/session_replay.py); `evidence/20261126_replay/` |
+| M5 teleop panel: read-only status + opt-in system stop | Complete (mock/loopback, 2026-11-26) | [`docs/TELEOP_PANEL.md`](docs/TELEOP_PANEL.md); `backend/tests/test_teleop_panel.py`; `frontend/src/pages/Teleop.tsx` |
 | Playwright browser E2E in CI | Planned | Ported specs; not run here |
 | Hardware acceptance | Not started | — |
 
@@ -33,6 +35,7 @@
 | M2a | Operator session store and authorization gate | Complete (2026-11-26) | A session record is opened, degraded, closed and exported with a verified hash; authorization refusal, tamper detection, redaction and restart-close are proven against a mock `/v1` status; no hardware | `evidence/20261126_sessions/` |
 | M2b | Console `/v1` joint/gripper intent | Complete (2026-11-26) | One operator intent is validated and submitted through `/v1/motion/validate` and `/v1/motion/execute` with an **operator-supplied system lease**; the Studio never calls `/v1/leases`; refusal and UNKNOWN outcomes are recorded and fail closed; mock gateway only, no hardware | `evidence/20261126_intent/` |
 | M3 | Trajectory inspection and experiment records | Complete (2026-11-26) | Recorded sessions replay offline; commanded and measured values stay separate; a joint delta is computed only when the session recorded the joint order; exports carry versions, contract hash and calibration identifiers and a verified analysis hash | `evidence/20261126_replay/` |
+| M5 | Teleop panel (ecosystem M5) | Complete (mock/loopback, 2026-11-26) | A live teleop status is shown with explicit stale/degraded state; the opt-in stop calls the system `/v1/motion/stop` (no Studio lease, no motion); both URLs are loopback-only; no hardware | `docs/TELEOP_PANEL.md`; `backend/tests/test_teleop_panel.py` |
 | M4 | Supervised hardware acceptance | Planned | Every motion session is separately authorized; the system layer applies the lease, limits and stop latch; L5 evidence is recorded alongside the system layer's own | — |
 
 ## Next

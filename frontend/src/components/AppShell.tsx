@@ -10,7 +10,9 @@ import { Button, SourceBadge, StatusChip } from "./ui";
 
 const NAV_ITEMS = [
   { to: "/", label: "总览", end: true },
+  { to: "/capabilities", label: "功能总览" },
   { to: "/joints", label: "关节控制" },
+  { to: "/teleop", label: "遥操作" },
   { to: "/task", label: "任务接管" },
   { to: "/diagnostics", label: "诊断" },
   { to: "/trajectory", label: "轨迹检查" },

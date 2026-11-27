@@ -6,6 +6,58 @@ All notable changes to this project are documented here. Format based on
 
 ## [Unreleased]
 
+### Added
+
+- Always-visible capability registry: `GET /api/capabilities` and the
+  `/capabilities` page list 19 pages/integrations/data sources with a live
+  status (`available`, `read_only`, `degraded`, `not_configured`, `blocked`,
+  `offline`). The list shape never changes when a dependency is missing, so an
+  operator can always see what the console can do and why a feature is not
+  ready.
+- Offline demo mode: `tools/studio/start_studio.sh --demo` / `ARMPI_DEMO=1`
+  runs the mock adapter with an explicit DEMO banner and an `/api/health`
+  `demo` flag. It requires mock mode and never executes motion.
+- The capability page falls back to a static catalog when the backend is
+  unreachable, so every surface stays visible even with no API.
+
+### Changed
+
+- `/api/health` reports `demo`; backend suite is now 220 tests. Mode-dependent
+  sections stay rendered: mock fault injection and the `/v1` diagnostics card
+  remain visible in hardware mode with a disabled state and a reason.
+
+## [0.8.0] — 2026-11-26
+
+### Added
+
+- Teleop panel (ecosystem M5) at `/teleop`: polls the read-only
+  `jcheng.teleop.status.v1` payload through `GET /api/teleop/status` and shows
+  phase, input age, deadman, mode, profile/contract hashes, hashed lease ref
+  and capture counters. A missing, unreachable, invalid or >1 s old sample is
+  rendered **degraded**, never ready.
+- The Studio's single system write: `POST /api/teleop/stop` proxies
+  `POST /v1/motion/stop` on the system gateway (Bearer token held by the
+  backend). It latches the system software stop, requires no Studio lease and
+  never calls the local motion adapter. It is opt-in via `ARMPI_SYSTEM_STOP=1`
+  and loopback-only; both URLs are validated as loopback.
+- `backend/app/adapters/teleop_status.py`, `system_stop.py`, `loopback.py`,
+  `application/teleop_ops.py`, `backend/tests/test_teleop_panel.py` (10 tests),
+  `docs/TELEOP_PANEL.md`.
+- `frontend/vitest.config.ts` keeps Playwright `e2e/*.spec.ts` out of
+  `npm test`; previously `vitest run` tried to collect them and failed.
+
+### Changed
+
+- Version 0.8.0. Backend tests: 201 passed; frontend `tsc -b && vite build`
+  and `npm test` pass (no unit suites).
+- `docs/GATEWAY_V1.md` distinguishes the read-only `/v1` intent client (still
+  no lease/stop) from the dedicated system-stop proxy added for the panel.
+
+### Not included
+
+- Browser Playwright E2E for the panel and a live gateway run in CI.
+- Any Studio lease acquisition, motion execution or hardware session.
+
 ## [0.7.0] — 2026-11-26
 
 ### Added

@@ -1,11 +1,12 @@
 # Acceptance report — jcheng-studio
 
-> Status: **pass** as of 2026-11-26 for v0.7.0 (console port + M1a REST +
-> M1b WebSocket + M2a sessions + M2b intent + M3 replay).
+> Status: **pass** as of 2026-11-26 for v0.8.0 (console port + M1a REST +
+> M1b WebSocket + M2a sessions + M2b intent + M3 replay + M5 teleop panel).
 > Operator: JerichoCheng. Reviewer: pending.
 > Scope: the ported backend and UI, the read-only `/v1` REST and WebSocket
-> clients, the M2a session store, the M2b intent path and the M3 offline replay,
-> the offline/mock test surface and the static boundary. No hardware session
+> clients, the M2a session store, the M2b intent path, the M3 offline replay and
+> the M5 teleop panel (read-only status + opt-in system stop proxy), the
+> offline/mock test surface and the static boundary. No hardware session
 > was run, no device was opened and no DDS domain was joined.
 > The report is additive: the v0.1.0 scaffold acceptance remains in
 > `evidence/20261126_scaffold/`.
@@ -14,10 +15,10 @@
 
 | Gate | Command | Level | Result | Evidence |
 |---|---|---|---|---|
-| Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261126_replay/gate.txt` |
+| Repository gate | `bash scripts/check_repo_gate.sh` | L0 | pass | `evidence/20261127_capabilities/gate.txt` |
 | Unit tests (manifest, document set, no-hardware scan) | `python3 -m pytest -q tests` | L1 | pass (13 tests) | `tests/` |
-| Backend suite | `backend/.venv/bin/python -m pytest tests` | L1 | pass (191 passed) | `evidence/20261126_replay/backend-tests.txt` |
-| Frontend production build | `npm run build` in `frontend/` | L0 | pass | `evidence/20261126_replay/frontend-build.txt` |
+| Backend suite | `backend/.venv/bin/python -m pytest tests` | L1 | pass (220 passed) | `evidence/20261127_capabilities/backend-tests.txt` |
+| Frontend production build | `npm run build` in `frontend/` | L0 | pass | `evidence/20261127_capabilities/frontend-build.txt` |
 | Mock HTTP API | covered by the backend suite | L2 | pass (mock only) | `backend/tests/` |
 | Mock `/v1` REST gateway | `backend/tests/test_gateway_v1.py` | L2 | pass (10 tests) | `evidence/20261126_gateway_v1/` |
 | Mock `/v1/ws/state` stream | `backend/tests/test_gateway_v1_stream.py` | L2 | pass (8 tests) | `evidence/20261126_gateway_ws/` |
@@ -25,6 +26,9 @@
 | M2a session lifecycle, authorization gate, seal/export | `backend/tests/test_sessions.py` | L2 | pass (7 tests) | `evidence/20261126_sessions/` |
 | M2b joint/gripper intent validate + execute | `backend/tests/test_gateway_v1_intent.py` | L2 | pass (8 tests) | `evidence/20261126_intent/` |
 | M3 offline replay and hashed analysis export | `backend/tests/test_session_replay.py` | L2 | pass (4 tests) | `evidence/20261126_replay/` |
+| M5 teleop panel status + system stop proxy | `backend/tests/test_teleop_panel.py` | L2 | pass (10 tests; mock gateway run) | `evidence/20261126_teleop_panel/` |
+| Capability registry (19 fixed rows) | `backend/tests/test_capabilities.py` | L2 | pass (6 tests; hardware read-only + demo probes) | `evidence/20261127_capabilities/` |
+| Offline demo mode (`--demo`) | `backend/tests/test_capabilities.py` | L1 | pass; demo requires mock and never executes motion | `evidence/20261127_capabilities/demo-capabilities.json` |
 | Playwright browser E2E | `npm run test:e2e` | L3 | not run in this port | — |
 | Legacy gateway integration | — | L2/L3 | not exercised | — |
 | Hardware | — | L5 | not applicable; no session authorized | — |
@@ -58,6 +62,9 @@
 | M3 replay keeps `commanded` targets and gateway `measured` positions in separate fields; a delta is computed only for a COMPLETED joint step with a recorded joint order | L2 | `backend/tests/test_session_replay.py` |
 | M3 replay exports are self-describing (studio version/commit, contract hash, calibration) and carry a verifiable analysis hash | L2 | `backend/tests/test_session_replay.py`; `evidence/20261126_replay/` |
 | M3 replay is offline: no gateway, robot or device is contacted | L0/L2 | `backend/app/analysis/`; `tests/test_session_replay.py` |
+| M5 status proxy reports a missing/unreachable/invalid/>1 s input as degraded, never ready | L2 | `backend/tests/test_teleop_panel.py`; `docs/TELEOP_PANEL.md` |
+| M5 stop goes through the system `POST /v1/motion/stop` (Bearer server-side), latches `STOP_LATCHED`, and uses no Studio lease or local motion adapter | L2 | `evidence/20261126_teleop_panel/` |
+| M5 status and stop URLs are loopback-only; the browser never holds the gateway token | L0/L2 | `backend/app/adapters/loopback.py`; `backend/tests/test_teleop_panel.py` |
 | The ported configs resolve without the baseline workspace | L0 | `configs/takeover.yaml`; `configs/calibration/` |
 | The vendor-derived URDF is not shipped; the visual tests use a project fixture | L0 | `backend/tests/fixtures/armpi_ultra_test.urdf`; `docs/MIGRATION.md` |
 
@@ -68,6 +75,7 @@
 | M2b intent against a real gateway or robot | Mock validate/execute only | Real safety, lease and bus behavior is not exercised |
 | Gripper measured position in replay | `MotionResult` carries arm positions only | No gripper delta can be computed from this record |
 | Playwright browser E2E | Not run in this port | UI regressions are not yet caught in CI |
+| Teleop panel browser E2E and a real teleop process | Backend routes tested; panel is build-verified; the live run used the demo harness | UI/staleness rendering is not browser-tested |
 | Legacy gateway integration | No gateway in this repository | The ported hardware path is unproven here |
 | Lease acquisition/ownership by the Studio | By design it does not acquire or hold a lease; the operator supplies one | No end-to-end lease UI in this console yet |
 | Hardware behavior | No session, no runtime | Nothing to validate on the robot |

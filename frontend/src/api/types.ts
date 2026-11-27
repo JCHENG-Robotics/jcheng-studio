@@ -1,6 +1,35 @@
 export type Mode = "mock" | "hardware";
 export type SourceLabel = "LIVE" | "SIMULATION" | "REPLAY";
 
+/** Capability registry status. The list shape is fixed; only this changes. */
+export type CapabilityStatus =
+  | "available"
+  | "read_only"
+  | "degraded"
+  | "not_configured"
+  | "blocked"
+  | "offline";
+
+export interface CapabilityFeature {
+  id: string;
+  title: string;
+  route: string;
+  category: string;
+  description: string;
+  status: CapabilityStatus;
+  detail: string;
+}
+
+export interface CapabilitiesPayload {
+  schema_version: number;
+  generated_at: string;
+  mode: Mode;
+  demo: boolean;
+  source_label: SourceLabel;
+  features: CapabilityFeature[];
+  summary: Record<CapabilityStatus, number>;
+}
+
 export interface Capabilities {
   hardware_motion: boolean;
   hardware_read: boolean;
@@ -1135,4 +1164,35 @@ export interface CameraReference {
 export interface CameraReferenceList {
   items: CameraReference[];
   schema_version: number;
+}
+
+/** M5: read-only teleop status proxy. A stale/missing payload is degraded. */
+export interface TeleopStatusProbe {
+  configured: boolean;
+  reachable: boolean;
+  valid: boolean;
+  stale: boolean;
+  degraded: boolean;
+  phase: string | null;
+  input_age_ms: number | null;
+  deadman: boolean | null;
+  mode: string | null;
+  profile_id: string | null;
+  profile_hash: string | null;
+  contract_hash: string | null;
+  lease_ref: string | null;
+  capture: Record<string, unknown>;
+  payload: Record<string, unknown>;
+  latency_ms: number | null;
+  errors: GatewayV1Issue[];
+}
+
+export interface SystemStopResult {
+  requested: boolean;
+  accepted: boolean;
+  latency_ms: number | null;
+  status_code: number | null;
+  result?: Record<string, unknown>;
+  error?: { code: string; message: string };
+  storage_error?: Record<string, unknown> | null;
 }

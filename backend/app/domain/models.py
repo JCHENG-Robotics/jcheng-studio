@@ -326,3 +326,4 @@ class Health:
     schema_version: int
     source_label: SourceLabel
     capabilities: Capabilities
+    demo: bool = False

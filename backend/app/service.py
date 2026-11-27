@@ -15,11 +15,13 @@ from dataclasses import replace
 from typing import Any, Callable
 
 from .adapters.base import RobotAdapter
+from .application.capability_ops import CapabilityOperations
 from .application.diagnostics_ops import DiagnosticsOperations
 from .application.experiment_ops import ExperimentOperations
 from .application.gateway_ops import GatewayV1Operations
 from .application.motion_ops import MotionOperations
 from .application.session_ops import SessionOperations
+from .application.teleop_ops import TeleopOperations
 # Re-exported for the existing task tests; the implementation now lives in
 # application/task_ops.py.
 from .application.task_ops import (
@@ -88,6 +90,8 @@ class RobotService(
     DiagnosticsOperations,
     SessionOperations,
     GatewayV1Operations,
+    TeleopOperations,
+    CapabilityOperations,
 ):
     def __init__(
         self,
@@ -642,6 +646,7 @@ class RobotService(
                 schema_version=self.settings.schema_version,
                 source_label=state.source_label,
                 capabilities=state.capabilities,
+                demo=self.settings.demo,
             )
         )
 

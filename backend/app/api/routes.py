@@ -90,6 +90,11 @@ class StopIn(BaseModel):
     command_id: str | None = Field(default=None, max_length=128)
 
 
+class SystemStopIn(BaseModel):
+    operator_id: str = Field(min_length=1, max_length=128)
+    reason: str = Field(default="operator stop from the teleop panel", max_length=500)
+
+
 class SessionOpenIn(BaseModel):
     operator: str = Field(min_length=1, max_length=128)
     purpose: str = Field(min_length=1, max_length=500)
@@ -196,6 +201,16 @@ def diagnostics(request: Request) -> dict[str, Any]:
     return _service(request).diagnostics()
 
 
+@router.get("/capabilities")
+def capabilities(request: Request) -> dict[str, Any]:
+    """Always-present feature registry with live availability.
+
+    The shape is fixed: a missing dependency changes a status, never the list,
+    so the console can show every surface even when the robot is offline.
+    """
+    return _service(request).capabilities()
+
+
 @router.get("/gateway/v1/status")
 def gateway_v1_status(request: Request) -> dict[str, Any]:
     """Read-only health/contract/state/safety probe; no lease, no motion."""
@@ -206,6 +221,20 @@ def gateway_v1_status(request: Request) -> dict[str, Any]:
 def gateway_v1_stream(request: Request) -> dict[str, Any]:
     """Read a short /v1/ws/state subscription; no lease, no intent."""
     return _service(request).gateway_v1_stream_probe()
+
+
+@router.get("/teleop/status")
+def teleop_status(request: Request) -> dict[str, Any]:
+    """Read-only teleop status (loopback); stale/missing is degraded."""
+    return _service(request).teleop_status()
+
+
+@router.post("/teleop/stop")
+def teleop_stop(request: Request, body: SystemStopIn) -> dict[str, Any]:
+    """The one system write: latch the system stop. No lease, no motion."""
+    return _service(request).system_stop(
+        operator_id=body.operator_id, reason=body.reason
+    )
 
 
 @router.post("/session/open")
