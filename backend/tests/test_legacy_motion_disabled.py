@@ -156,23 +156,15 @@ def test_legacy_empty_lease_is_rejected_and_never_dispatched(
                     ],
                 },
             )
-            assert response.status_code in (400, 403), response.text
-            assert response.json()["error"]["code"] in (
-                "BAD_REQUEST",
-                "NO_LEASE",
-                "MISSING_SYSTEM_LEASE",
-            )
+            assert response.status_code == 400, response.text
+            assert response.json()["error"]["code"] == "BAD_REQUEST"
 
         chassis = client.post(
             "/api/chassis/pulse",
             json={**CHASSIS_BODY, "lease_id": ""},
         )
-        assert chassis.status_code in (400, 403), chassis.text
-        assert chassis.json()["error"]["code"] in (
-            "BAD_REQUEST",
-            "NO_LEASE",
-            "MISSING_SYSTEM_LEASE",
-        )
+        assert chassis.status_code == 400, chassis.text
+        assert chassis.json()["error"]["code"] == "BAD_REQUEST"
 
         stages = [
             event["stage"] for event in client.get("/api/events").json()["items"]
