@@ -23,10 +23,10 @@ from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 
-# Pinned with jcheng-interfaces v0.1.0. `tests/test_contract.py` checks that
+# Pinned with jcheng-interfaces v0.2.0. `tests/test_contract.py` checks that
 # this value still matches `capability.yaml`; a contract change updates both.
 EXPECTED_CONTRACT_HASH = (
-    "sha256:0b8d72ced7f54d444d6851d8b99a51a78e2bed3f687324f51a15f76557f24b42"
+    "sha256:afca22a42f7163e0351d185d5a8577b0b51f2f3da4b92278f161a4a7d2c35b1c"
 )
 
 HEALTH_STATUSES = {"ok", "degraded", "fault"}

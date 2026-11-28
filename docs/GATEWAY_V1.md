@@ -28,7 +28,7 @@ is hardware-only and opt-in (`ARMPI_MODE=hardware` + `ARMPI_SYSTEM_INTENT=1`).
 | WS endpoint | `GET /v1/ws/state` upgrade; `hello`, then `state` + `safety` at ~10 Hz |
 | Intent endpoints | `POST /v1/motion/validate`, `POST /v1/motion/execute` (Idempotency-Key) |
 | Lease methods | none: the Studio never calls `/v1/leases`; the operator supplies the lease |
-| Contract identity | pinned to `sha256:0b8d72…24b42`; a mismatch is reported and fails closed |
+| Contract identity | pinned to `sha256:afca22…c35b1c`; a mismatch is reported and fails closed |
 | Backend routes | `GET /api/gateway/v1/status`, `GET /api/gateway/v1/stream`; `POST /api/session/intent/joint|gripper` |
 | UI | Diagnostics → “Gateway v1 · 只读诊断” and the “操作会话 · M2” intent panel |
 
