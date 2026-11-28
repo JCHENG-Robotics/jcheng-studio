@@ -26,7 +26,7 @@ from urllib.request import ProxyHandler, Request, build_opener
 # Pinned with jcheng-interfaces v0.2.0. `tests/test_contract.py` checks that
 # this value still matches `capability.yaml`; a contract change updates both.
 EXPECTED_CONTRACT_HASH = (
-    "sha256:afca22a42f7163e0351d185d5a8577b0b51f2f3da4b92278f161a4a7d2c35b1c"
+    "sha256:8bc92d18a503ec54db443596eec232b5117f4c6d510f7493d4e107b93a5d3358"
 )
 
 HEALTH_STATUSES = {"ok", "degraded", "fault"}
