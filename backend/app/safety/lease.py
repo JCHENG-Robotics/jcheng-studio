@@ -1,4 +1,14 @@
-"""Single-holder control lease with TTL and heartbeat."""
+"""Local UI concurrency lock with TTL and heartbeat.
+
+This is **not** a motion lease. The Studio forwards the operator's
+System-issued lease to ``jcheng-system`` and never acquires, checks, renews,
+releases or holds motion authority itself. ``LeaseManager`` only keeps one
+console/session from racing another console/session in the UI; the system layer
+remains the sole origin of every motion lease and every safety gate.
+
+The class name and its method signatures are kept to avoid a disruptive
+refactor while the legacy console surfaces are migrated.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +44,8 @@ def _iso_after(seconds: float) -> str:
 
 
 class LeaseManager:
+    """UI concurrency lock; never a motion authorization gate."""
+
     def __init__(self, clock: Callable[[], float] | None = None) -> None:
         self._clock = clock or time.monotonic
         self._lock = threading.Lock()

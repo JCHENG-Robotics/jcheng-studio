@@ -205,6 +205,9 @@ def _pose_settings(tmp_path: Path) -> Settings:
         frontend_dist=tmp_path / "dist",
         log_level="info",
         hardware_motion_enabled=False,
+        # These tests exercise the deprecated dispatch runner directly; the
+        # default-disabled policy is covered by test_legacy_motion_disabled.py.
+        legacy_motion_enabled=True,
         motion_scope="pose",
         takeover_acknowledged=True,
         takeover_config_path=TAKEOVER_PATH,

@@ -105,6 +105,9 @@ def _adapter(
         gateway_token="token",
         motion_enabled=True,
         supervised=supervised,
+        # These tests cover the deprecated transport in isolation; the
+        # default-disabled policy is covered by test_legacy_motion_disabled.py.
+        legacy_motion=True,
     )
     gateway = FakeGateway()
     gateway.state = _state(mapping)
@@ -320,6 +323,7 @@ def test_supervised_service_executes_through_the_gate(mapping, clock, settings) 
         supervised_motion=True,
         gateway_url="http://fake-gateway",
         gateway_token="token",
+        legacy_motion_enabled=True,
         db_path=settings.db_path.with_name("supervised-motion.db"),
     )
     adapter, gateway = _adapter(mapping, clock)
@@ -354,6 +358,7 @@ def test_service_gate_rejects_without_acknowledgement(mapping, clock, settings) 
         supervised_motion=False,
         gateway_url="http://fake-gateway",
         gateway_token="token",
+        legacy_motion_enabled=True,
         db_path=settings.db_path.with_name("unacked-motion.db"),
     )
     adapter, _ = _adapter(mapping, clock)
@@ -387,6 +392,7 @@ def test_motion_disabled_adapter_stays_read_only(mapping, clock) -> None:
         gateway_url="http://fake-gateway",
         gateway_token="token",
         motion_enabled=False,
+        legacy_motion=True,
     )
     gateway = FakeGateway()
     gateway.state = _state(mapping)

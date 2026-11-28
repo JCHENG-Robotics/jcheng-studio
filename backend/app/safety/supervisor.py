@@ -173,21 +173,31 @@ class SafetySupervisor:
                 severity=Severity.WARNING,
             )
 
+        # The local LeaseManager is a UI concurrency lock, not motion authority.
+        # The Studio never checks, issues, renews or holds a motion lease: the
+        # operator supplies a System-issued lease and the system layer enforces
+        # it. A missing local lock is therefore a warning, never a blocker.
         if require_lease:
-            lease = self.leases.check(lease_id, session_id)
+            local_lock = self.leases.check(lease_id, session_id)
             add(
                 "control_lease",
-                "控制权租约",
-                lease.ok,
-                lease.detail,
-                severity=Severity.FAULT,
+                "本地 UI 并发锁",
+                local_lock.ok,
+                (
+                    f"{local_lock.detail}；仅界面并发控制，不是运动授权"
+                    if local_lock.ok
+                    else "本地 UI 锁未持有或不匹配；不阻止运动，"
+                    "运动租约由 system 层校验"
+                ),
+                blocking=False,
+                severity=Severity.INFO if local_lock.ok else Severity.WARNING,
             )
         else:
             add(
                 "control_lease",
-                "控制权租约",
+                "本地 UI 并发锁",
                 True,
-                "预览不需要租约",
+                "未检查；运动授权由 system 层持有的系统租约决定",
                 blocking=False,
                 severity=Severity.INFO,
             )

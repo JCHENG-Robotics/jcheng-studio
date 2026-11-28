@@ -6,8 +6,18 @@
 # opt-in system stop proxy (`POST /v1/motion/stop`, latches; no lease, no
 # motion execution). The Studio still has no ROS runtime surface: no DDS
 # domain, topic, service or device. The ported legacy HTTP gateway adapter is
-# not a ROS interface and is disabled by default. The empty runtime surface is
-# deliberate: the console must not claim a transport it does not serve.
+# not a ROS interface and its motion dispatch path is removed from the default
+# runtime: `/api/motion/execute`, `/api/chassis/pulse` and `/api/motion/stop`
+# answer HTTP 410 Gone by default and are reachable only through the deprecated
+# double switch `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`. That
+# double-switch mode is operator-only, not system-authorized (the frozen
+# gateway cannot validate a System lease), rejects an empty lease with HTTP
+# 400, is not a safe or normal-operation path, and is scheduled for removal
+# under a boundary waiver for `B4 studio legacy_motion.py` (expiry + removal
+# owner). This is default-disable and isolation, not deletion: legacy motion is
+# not available in the default or hardware mode and no console surface may
+# advertise it. The empty runtime surface is deliberate: the console must not
+# claim a transport it does not serve.
 #
 # The permanent division of authority is already fixed: the Studio talks to the
 # system gateways over HTTP/WS only, forwards operator *intent*, and never
@@ -26,6 +36,8 @@ safety:
   # Intent observer: it forwards operator intent to the system gateway and
   # never executes motion itself. The scopes are the intent scopes it may ask
   # for; the operator's lease is issued by the system layer, never held here.
+  # Intent forwarding is hardware-only and opt-in (ARMPI_SYSTEM_INTENT=1); the
+  # local legacy dispatch path is disabled by default and carries no authority.
   class: observer
   scopes: ["arm", "gripper"]
   # Required by capability-manifest.v1.schema.json. The Studio never becomes a

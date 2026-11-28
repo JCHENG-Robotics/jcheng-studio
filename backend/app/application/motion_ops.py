@@ -24,10 +24,43 @@ from ..domain.state_machine import transition
 from ..domain.takeover import ARM_JOINTS
 from ..domain.visual import VisualModelError
 from ..errors import ServiceError
+from ..legacy_motion import legacy_motion_error
 from ..safety.pose_gate import PoseGate, mapping_targets_valid
 
 
 class MotionOperations:
+    # ------------------------------------------------------ legacy motion policy
+    def _require_legacy_motion(self, operation: str) -> None:
+        """Hard block for the deprecated local dispatch path.
+
+        The HTTP routes already answer 410 Gone; this second guard keeps a
+        direct service call from bypassing the policy. The Studio is not a
+        motion authority: the only supported path is a System-issued intent
+        forwarded through /v1.
+        """
+        if not self.settings.legacy_motion_enabled:
+            raise legacy_motion_error(operation)
+
+    @staticmethod
+    def _operator_system_lease(lease_id: str | None) -> str:
+        """Validate the operator-supplied lease reference for the legacy path.
+
+        The Studio never acquires, renews, releases or checks a motion lease.
+        In the deprecated legacy mode the frozen gateway has no lease
+        validator, so this only rejects an empty/whitespace reference with
+        HTTP 400 and records a non-empty one as an opaque operator reference.
+        It is **operator-only, not system authorization**, and the legacy path
+        is scheduled for removal.
+        """
+        value = (lease_id or "").strip()
+        if not value:
+            raise ServiceError(
+                ErrorCode.BAD_REQUEST.value,
+                "the operator-supplied system lease_id is required",
+                status_code=400,
+            )
+        return value
+
     # ------------------------------------------------------------------- motion
     def preview(
         self,
@@ -199,16 +232,18 @@ class MotionOperations:
         profile: ProfileParams | None = None,
         fast: bool = False,
     ) -> dict[str, Any]:
+        self._require_legacy_motion("execute")
         if not idempotency_key or not idempotency_key.strip():
             raise ServiceError(
                 ErrorCode.BAD_REQUEST.value,
                 "Idempotency-Key is required",
                 status_code=400,
             )
+        system_lease_id = self._operator_system_lease(lease_id)
         request_hash = self._hash(
             {
                 "session_id": session_id,
-                "lease_id": lease_id,
+                "lease_id": system_lease_id,
                 "preview_token": preview_token,
                 "command_id": command_id,
                 "targets": [jsonable(t) for t in targets],
@@ -221,14 +256,9 @@ class MotionOperations:
             if cached is not None:
                 return cached
 
-            lease = self.leases.check(lease_id, session_id)
-            if not lease.ok:
-                raise ServiceError(
-                    lease.code or ErrorCode.NO_LEASE.value,
-                    lease.detail,
-                    status_code=403,
-                )
-
+            # The local LeaseManager is a UI concurrency lock, never a motion
+            # gate: the operator's system lease is validated by the system
+            # layer when the intent is forwarded, not by this process.
             state = self._state()
             outcome = self._validate_targets(
                 state, targets, profile=profile, fast=fast
@@ -314,9 +344,9 @@ class MotionOperations:
             safety = self.supervisor.evaluate(
                 state=state,
                 connection=self._connection(),
-                lease_id=lease_id,
+                lease_id=system_lease_id,
                 session_id=session_id,
-                require_lease=True,
+                require_lease=False,
                 executing=state.connection_state is ConnectionState.EXECUTING,
                 supervised_motion=self.settings.supervised_motion,
                 motion_limits=self.motion_limits,
@@ -405,6 +435,7 @@ class MotionOperations:
                     "safety": {"ready": safety.ready, "warnings": safety.warnings},
                     "adapter": dispatch.details,
                     "pose": pose_details,
+                    "system_lease_id": system_lease_id,
                 },
             )
             self._save(record)
@@ -415,7 +446,11 @@ class MotionOperations:
                     "adapter",
                     dispatch.detail,
                     None,
-                    {**dict(dispatch.details or {}), "pose": pose_details},
+                    {
+                        **dict(dispatch.details or {}),
+                        "pose": pose_details,
+                        "system_lease_id": system_lease_id,
+                    },
                 )
             )
 
@@ -443,12 +478,15 @@ class MotionOperations:
             return response
 
     def stop(self, *, session_id: str, lease_id: str | None = None, command_id: str | None = None) -> dict[str, Any]:
+        """Deprecated local stop; the only supported stop is the system proxy.
+
+        ``POST /api/teleop/stop`` forwards the system ``/v1/motion/stop``. This
+        legacy hold path is default-disabled and carries no lease authority.
+        """
+        self._require_legacy_motion("stop")
+        system_lease_id = (lease_id or "").strip() or None
         with self._lock:
             stop_command_id = command_id or f"stop_{uuid.uuid4().hex[:12]}"
-            lease_detail = None
-            if lease_id:
-                lease_check = self.leases.check(lease_id, session_id)
-                lease_detail = {"ok": lease_check.ok, "detail": lease_check.detail}
             result: StopResult = self.adapter.stop(stop_command_id)
             # A stop invalidates any plan built from the pre-stop pose; a
             # later task/verify must re-locate instead of accepting stale data.
@@ -464,7 +502,8 @@ class MotionOperations:
                         None,
                         {
                             "session_id": session_id,
-                            "lease": lease_detail,
+                            "system_lease_id": system_lease_id,
+                            "authority": "legacy_local_stop_deprecated",
                             "evidence": result.evidence,
                             "stop_state": result.state.value,
                         },
@@ -493,7 +532,11 @@ class MotionOperations:
         Only allowed with the arm at the task view: the pulse is computed from
         that view's measurement, and the next locate must see the same scene.
         The gateway caps each pulse; the caller is responsible for the loop.
+        This is a deprecated legacy path: it is default-disabled and carries
+        no local lease authority.
         """
+        self._require_legacy_motion("chassis_pulse")
+        self._operator_system_lease(lease_id)
         takeover = self.takeover
         task = takeover.task if takeover is not None else None
         approach = task.approach if task is not None else None
@@ -542,13 +585,8 @@ class MotionOperations:
                 status_code=403,
             )
         with self._lock:
-            lease = self.leases.check(lease_id, session_id)
-            if not lease.ok:
-                raise ServiceError(
-                    lease.code or ErrorCode.NO_LEASE.value,
-                    lease.detail,
-                    status_code=403,
-                )
+            # The local LeaseManager is a UI concurrency lock only; the
+            # operator's system lease is forwarded/validated by the system.
             state = self._state()
             view = takeover.preset(task.view_preset) if task is not None else None
             if view is None:

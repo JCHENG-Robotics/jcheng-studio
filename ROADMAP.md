@@ -3,8 +3,10 @@
 > Status: **v0.8.0** as of 2026-11-26. The frozen console is ported; the
 > read-only `/v1` REST/WS clients, the M2a session store, the M2b intent path,
 > the M3 offline replay and the M5 teleop panel (status + opt-in system stop)
-> are verified against local/mock endpoints. Hardware acceptance is not
-> implemented.
+> are verified against local/mock endpoints. The 2026-11-27 authority-hardening
+> pass default-disabled the legacy motion dispatch path and reduced the local
+> lease to a UI concurrency lock; the Studio now has one intent path and one
+> stop path. Hardware acceptance is not implemented.
 
 ## Current state
 
@@ -13,7 +15,7 @@
 | Admission manifest (`capability.yaml`) | Complete (2026-11-26) | `capability.yaml`; `tests/test_contract.py` |
 | Repository scaffold, gate and CI | Complete (2026-11-26) | `scripts/check_repo_gate.sh`; CI `studio-gate` |
 | Console port (backend, UI, configs, tools) | Complete (2026-11-26) | `backend/tests/`; `frontend/`; [`docs/MIGRATION.md`](docs/MIGRATION.md) |
-| Mock HTTP API and offline validation | Complete (2026-11-26) | 191 passed; `evidence/20261126_replay/` |
+| Mock HTTP API and offline validation | Complete (2026-11-26) | 220 passed; `evidence/20261126_replay/` |
 | Read-only `/v1` REST client (health, contract, state, safety) | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1.py`](backend/app/adapters/gateway_v1.py); [`docs/GATEWAY_V1.md`](docs/GATEWAY_V1.md) |
 | Read-only `/v1/ws/state` subscription (M1b) | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1_stream.py`](backend/app/adapters/gateway_v1_stream.py); `evidence/20261126_gateway_ws/` |
 | Diagnostics page wired to `/api/gateway/v1/status` and `/api/gateway/v1/stream` | Complete (2026-11-26) | `frontend/src/pages/Diagnostics.tsx` |
@@ -21,6 +23,7 @@
 | M2b console `/v1` joint/gripper intent | Complete (2026-11-26) | [`backend/app/adapters/gateway_v1_intent.py`](backend/app/adapters/gateway_v1_intent.py); `evidence/20261126_intent/` |
 | M3 offline session replay and commanded/measured analysis | Complete (2026-11-26) | [`backend/app/analysis/session_replay.py`](backend/app/analysis/session_replay.py); `evidence/20261126_replay/` |
 | M5 teleop panel: read-only status + opt-in system stop | Complete (mock/loopback, 2026-11-26) | [`docs/TELEOP_PANEL.md`](docs/TELEOP_PANEL.md); `backend/tests/test_teleop_panel.py`; `frontend/src/pages/Teleop.tsx` |
+| Authority hardening: legacy motion default-disabled; System-only intent and stop; local lease reduced to a UI lock | Complete (2026-11-27) | `backend/tests/test_legacy_motion_disabled.py`; [`backend/app/legacy_motion.py`](backend/app/legacy_motion.py); [`docs/INTEGRATION.md`](docs/INTEGRATION.md#legacy-motion-deprecation) |
 | Playwright browser E2E in CI | Planned | Ported specs; not run here |
 | Hardware acceptance | Not started | — |
 
@@ -44,12 +47,21 @@
    session against the real system gateway: the operator supplies the lease,
    the system layer applies limits/deadman/stop latch, and the Studio records
    L5 evidence alongside the system layer's own. Never from CI or unattended.
-2. **Gateway disposition — decided 2026-11-26.** The frozen DDS
-   `ros2_gateway` is not ported into this repository; `jcheng-system`'s `/v1`
-   gateway is the target. The legacy HTTP adapter and the legacy G7/G8 runners
-   remain a transitional operator path only, are disabled by default and are
-   not admitted by `capability.yaml`. Task/takeover endpoints still needed by
-   the console must be added to `jcheng-interfaces` and `jcheng-system` first.
+2. **Gateway disposition — decided 2026-11-26, hardened 2026-11-27.** The
+   frozen DDS `ros2_gateway` is not ported into this repository;
+   `jcheng-system`'s `/v1` gateway is the target. The legacy HTTP adapter and
+   the legacy G7/G8 runners remain a transitional operator path only, are
+   default-disabled and are not admitted by `capability.yaml`. The legacy
+   motion endpoints now answer `410 Gone` unless
+   `ARMPI_MODE=legacy` + `ARMPI_ENABLE_LEGACY_MOTION=1`, and their dispatch is
+   hard-blocked in the service and adapter. That double-switch mode is
+   operator-only and not system-authorized (the frozen gateway cannot validate
+   a System lease); an empty lease is rejected with `400`, and it is not a
+   safe or normal-operation path. The residual `legacy_motion.py` boundary is
+   scheduled for removal and tracked by the formal boundary waiver
+   `B4 studio legacy_motion.py` (expiry + removal owner). Task/takeover
+   endpoints still needed by the console must be added to `jcheng-interfaces`
+   and `jcheng-system` first.
 
 ## Out of scope
 

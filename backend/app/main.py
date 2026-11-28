@@ -93,6 +93,7 @@ def _make_service(settings: Settings, clock: Callable[[], float] | None) -> Robo
             supervised=settings.supervised_motion,
             motion_scope=settings.motion_scope,
             takeover=takeover,
+            legacy_motion=settings.legacy_motion_enabled,
         )
     )
     return RobotService(
@@ -126,8 +127,8 @@ def create_app(
         title="ArmPi Debug Studio",
         version=__version__,
         description=(
-            "ArmPi 安全调试工作台：Mock 完整演示；硬件默认只读，运动需显式启用并按 "
-            "G6 单关节 / G7 姿态 / G8 任务接管确认。"
+            "ArmPi 安全调试工作台：控制台只转发 System 签发的意图与系统停止；"
+            "legacy 运动下发默认禁用，mock 模式不连接真实 system。"
         ),
         lifespan=lifespan,
     )

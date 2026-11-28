@@ -13,7 +13,8 @@ read-only clients implement the published contract in `jcheng-interfaces` so
 the operator can see whether a gateway is reachable, which contract it runs and
 what state/safety it reports. The M2b intent client forwards one joint/gripper
 command only after an authorized session and with an **operator-supplied
-system lease**; the Studio never acquires or holds a lease.
+system lease**; the Studio never acquires or holds a lease. Intent forwarding
+is hardware-only and opt-in (`ARMPI_MODE=hardware` + `ARMPI_SYSTEM_INTENT=1`).
 
 ## 2. Surface
 
@@ -39,6 +40,9 @@ system lease**; the Studio never acquires or holds a lease.
 | `ARMPI_GATEWAY_V1_TOKEN` | Bearer token; never logged, never returned to the browser |
 | `ARMPI_GATEWAY_V1_CONTRACT_HASH` | Optional override; default is the pinned v0.1.0 hash |
 | `ARMPI_GATEWAY_V1_TIMEOUT_S` | Connect/read timeout, default 2.0 s; must be positive |
+| `ARMPI_MODE` | `hardware` is required for intent; `mock` and `legacy` answer `409 SYSTEM_INTENT_REQUIRES_HARDWARE` |
+| `ARMPI_SYSTEM_INTENT` | `1` enables the intent endpoints in hardware mode; unset answers `403 SYSTEM_INTENT_DISABLED`. The Studio still never acquires a lease |
+| `ARMPI_MODE=mock` + `/v1` URL/token | Cleared at startup with a warning; a mock process cannot call a real system |
 
 These are separate from the legacy `ARMPI_GATEWAY_URL` / `ARMPI_GATEWAY_TOKEN`
 used by the ported frozen adapter. The `/v1` clients never fall back to the

@@ -187,7 +187,9 @@ class CapabilityOperations:
         safety = diagnostics.get("safety") or {}
         storage_error = diagnostics.get("storage_error")
         motion_enabled = bool(caps.hardware_motion)
-        read_only = mode is Mode.HARDWARE and not motion_enabled
+        read_only = (
+            mode in (Mode.HARDWARE, Mode.LEGACY) and not motion_enabled
+        )
         gv1 = self.gateway_v1_status()
         teleop = self.teleop_status()
         visual = self.visual_snapshot()
@@ -199,11 +201,17 @@ class CapabilityOperations:
             if not storage_error
             else (DEGRADED, f"事件存储错误：{storage_error}")
         )
-        page_status = (
-            (READ_ONLY, "硬件只读：预览可用，执行被硬件运动能力关闭")
-            if read_only
-            else (AVAILABLE, "可预览；执行仍受安全门禁约束")
-        )
+        if read_only:
+            page_status = (
+                READ_ONLY, "硬件只读：预览可用，执行被硬件运动能力关闭"
+            )
+        elif mode is Mode.MOCK and not self.settings.legacy_motion_enabled:
+            page_status = (
+                READ_ONLY,
+                "预览可用；legacy 运动执行已默认禁用",
+            )
+        else:
+            page_status = (AVAILABLE, "可预览；执行仍受安全门禁约束")
         statuses["joints"] = page_status
         statuses["task"] = page_status
         statuses["teleop"] = self._teleop_status(teleop)
@@ -273,7 +281,16 @@ class CapabilityOperations:
         if demo:
             return READ_ONLY, "演示模式：不会下发运动"
         if mode is Mode.MOCK:
-            return AVAILABLE, "Mock 完整演示：可预览与执行"
+            if self.settings.legacy_motion_enabled:
+                return (
+                    AVAILABLE,
+                    "Mock legacy 运动已显式启用（legacy 已废弃）",
+                )
+            return READ_ONLY, "legacy 运动已默认禁用；仅预览可用"
+        if mode is Mode.LEGACY:
+            if self.settings.legacy_motion_enabled:
+                return AVAILABLE, "legacy 运动双开关已启用（已废弃）"
+            return READ_ONLY, "legacy 模式未启用运动开关；仅预览可用"
         if read_only:
             return READ_ONLY, "ARMPI_HARDWARE_MOTION=0（硬件只读）"
         if not motion_enabled:

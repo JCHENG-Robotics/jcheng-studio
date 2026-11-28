@@ -56,13 +56,16 @@ ready.
 - The request carries `operator_id` and an optional reason; it requires no
   Studio lease and does not call the local motion adapter. The panel records an
   audit event with latency/status.
+- This is the **only** stop path. The deprecated `POST /api/motion/stop`
+  answers `410 Gone` by default (`LEGACY_MOTION_DISABLED`) and is not a
+  substitute for the system stop.
 - The backend round trip is asserted below 500 ms in tests; the UI shows the
   measured latency.
 
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest tests -q        # 201 passed
+cd backend && .venv/bin/python -m pytest tests -q        # 220 passed
 cd frontend && npm run build && npm test                 # tsc/vite build; no unit suites
 bash scripts/check_repo_gate.sh                          # 13 root tests, gate OK
 ```

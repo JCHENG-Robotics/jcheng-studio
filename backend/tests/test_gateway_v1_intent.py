@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 from app.adapters.gateway_v1 import EXPECTED_CONTRACT_HASH
 from app.adapters.gateway_v1_intent import GatewayV1IntentClient
+from app.domain.enums import Mode
 from app.main import create_app
 
 READY = {
@@ -139,6 +140,9 @@ def _client(intent_gateway, settings, monkeypatch) -> TestClient:
     app = create_app(
         settings=replace(
             settings,
+            # Intent is hardware-only and opt-in; mock mode is refused.
+            mode=Mode.HARDWARE,
+            system_intent_enabled=True,
             gateway_v1_url=url,
             gateway_v1_token="test-token",
         )
@@ -320,7 +324,17 @@ def test_unknown_execution_degrades_the_session(intent_gateway, settings, monkey
 
 
 def test_intent_requires_a_configured_gateway(settings, monkeypatch) -> None:
-    app = create_app(settings=settings)
+    # The intent gate itself passes (hardware + opt-in); the missing /v1
+    # coordinates are what must fail closed.
+    app = create_app(
+        settings=replace(
+            settings,
+            mode=Mode.HARDWARE,
+            system_intent_enabled=True,
+            gateway_v1_url=None,
+            gateway_v1_token=None,
+        )
+    )
     client = TestClient(app)
     client.__enter__()
     try:

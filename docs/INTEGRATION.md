@@ -1,10 +1,12 @@
 # Integration — jcheng-studio
 
-> Status: **Experimental** as of 2026-11-26. v0.7.0 ports the frozen console
+> Status: **Experimental** as of 2026-11-27. v0.8.0 ports the frozen console
 > backend and UI, implements the read-only `/v1` REST and `/v1/ws/state`
 > clients, the M2a operator-session store, the M2b joint/gripper intent path
-> and the M3 offline replay. The ported legacy HTTP adapter is documented in
-> section 2.
+> and the M3 offline replay. The 2026-11-27 authority-hardening pass removes
+> legacy motion from the default runtime: the Studio only consumes
+> System-issued intent and the system stop proxy. The ported legacy HTTP
+> adapter is documented in section 2.
 
 ## 1. Admission and discovery
 
@@ -42,7 +44,7 @@ no second path: no SSH, no vendor SDK, no ROS topic, no serial device.
 | Contract | `GET /v1/contract` returns the deployed contract identity; a hash mismatch refuses the session |
 | State and safety | `GET /v1/state`, `GET /v1/safety` (M1a); the live stream is `/v1/ws/state` (M1b) |
 | WebSocket | One `/v1/ws/state` subscription using `jcheng-ws.v1.json` (`hello`, `state`, `safety`, `lease`, `motion`, `event`, `ping`, `pong`); `hello`/`state`/`safety` surfaced |
-| Intent (M2b) | `POST /v1/motion/validate` and `/v1/motion/execute` for one joint/gripper command, only in an authorized session and with an operator-supplied system lease; no `/v1/leases` call |
+| Intent (M2b) | `POST /v1/motion/validate` and `/v1/motion/execute` for one joint/gripper command, hardware-only and opt-in (`ARMPI_SYSTEM_INTENT=1`), only in an authorized session and with an operator-supplied system lease; no `/v1/leases` call |
 | Ports | Deployment detail, not contract: `jcheng-system` documents 8766 (supervised) and 8767 (read-only). The Studio reads the configured URL and assumes nothing |
 | Middleware | No DDS, no RMW, no `CYCLONEDDS_URI`. HTTP/WS only |
 
@@ -60,9 +62,9 @@ to `jcheng-interfaces` first — the Studio does not invent a private endpoint.
 
 The ported console includes the frozen Studio's older gateway client
 (`backend/app/adapters/gateway.py`), which uses `/health` with an
-`X-Armpi-Token` header. It is enabled only in `ARMPI_MODE=hardware` and exists
-so the ported console can run against an already-deployed frozen gateway.
-During migration:
+`X-Armpi-Token` header. It is used only in `ARMPI_MODE=hardware` (read-only) or
+the deprecated `ARMPI_MODE=legacy`, and exists so the ported console can run
+against an already-deployed frozen gateway. During migration:
 
 - The local backend keeps `/api/health` as a liveness probe for the
   `jcheng-ops` watchdog. It reports backend liveness only and never robot state.
@@ -70,12 +72,76 @@ During migration:
   must not use it, and it does not become a compatibility shim for `/v1`.
 - The `/v1` client (M1) uses `Authorization: Bearer` and does not carry a
   compatibility shim for `/health` or for the old token header.
+- The legacy **motion** transport (dispatch/chassis/stop) is removed from the
+  default runtime; see the deprecation rules below.
+
+### Legacy motion deprecation
+
+Legacy motion is **default-disabled and isolated**, not deleted. The classes and
+endpoints remain for the operator's migration window, but the default and
+hardware modes cannot dispatch, pulse or locally stop motion.
+
+| Surface | Default behavior | Deprecated exception |
+|---|---|---|
+| `POST /api/motion/execute` | `410 Gone`, `LEGACY_MOTION_DISABLED`, with a migration hint | `ARMPI_MODE=legacy` **and** `ARMPI_ENABLE_LEGACY_MOTION=1` |
+| `POST /api/chassis/pulse` | `410 Gone` (same code) | same double switch |
+| `POST /api/motion/stop` | `410 Gone` (same code) | same double switch |
+
+- The double switch requires `ARMPI_MODE=legacy`; setting
+  `ARMPI_ENABLE_LEGACY_MOTION=1` in any other mode is ignored with a startup
+  warning, and `ARMPI_MODE=legacy` without the switch fails startup.
+- Legacy mode also requires `ARMPI_GATEWAY_URL` and `ARMPI_GATEWAY_TOKEN` and
+  keeps the joint-mapping verification / supervised-ack rules. The frozen
+  gateway is deprecated; no new feature may depend on it.
+- The hard block is enforced twice: at the HTTP route and inside
+  `MotionOperations` / `HardwareAdapter`, so a direct service or adapter call
+  is refused as well. The default code paths never mention
+  `/motion/dispatch`; that path lives only in `backend/app/legacy_motion.py`.
+- A `mock` process must never reach a real system gateway. At startup,
+  `ARMPI_MODE=mock` with `ARMPI_GATEWAY_V1_URL` / `ARMPI_GATEWAY_V1_TOKEN`
+  clears both values, disables the system stop, and records a startup warning.
+
+#### Legacy mode is operator-only, not system-authorized
+
+The double-switch mode is a deprecated **operator maintenance path**, not an
+authorized or safety-checked motion path.
+
+- The frozen gateway has **no lease validator**. The Studio therefore cannot
+  check a System lease in legacy mode: any non-empty `lease_id` is accepted as
+  an opaque operator reference and only recorded for audit.
+- An empty or whitespace-only `lease_id` is rejected locally with HTTP `400`
+  (`BAD_REQUEST`) before any adapter call; nothing is dispatched and no
+  `Dispatched` event is written.
+- Do not claim this mode is safe, authorized, or suitable for normal robot
+  operation. It is only for the migration window and carries no deadman,
+  lease, system limit or stop-latch guarantee from the Studio.
+- **Scheduled for removal.** The residual `backend/app/legacy_motion.py`
+  boundary is tracked by a formal boundary waiver (`B4 studio legacy_motion.py`)
+  with an expiry date and a named removal owner; this round keeps it
+  default-disabled and does not move it. No new feature may depend on it.
+
+**Migration.** Use the single intent path and the single stop path:
+
+1. `POST /api/session/intent/joint` or `.../gripper` with a System-issued
+   `lease_id`; requires `ARMPI_MODE=hardware` and `ARMPI_SYSTEM_INTENT=1`.
+2. `POST /api/teleop/stop` for the system `POST /v1/motion/stop` (no Studio
+   lease, no local motion adapter).
 
 ## 3. Operator sessions and authorization
 
 The Studio performs no motion on its own and never holds a lease. It forwards
 operator **intent** to the gateway, where the system layer applies the lease,
 deadman, limits and stop latch.
+
+- `POST /api/session/intent/joint` and `.../gripper` are hardware-only and
+  opt-in: outside `ARMPI_MODE=hardware` they answer `409`
+  (`SYSTEM_INTENT_REQUIRES_HARDWARE`), and with `ARMPI_SYSTEM_INTENT` unset
+  they answer `403` (`SYSTEM_INTENT_DISABLED`).
+- The local `/api/control/acquire|heartbeat|release` endpoints manage a **UI
+  concurrency lock**, not a motion lease. Their responses carry
+  `authority: "ui_concurrency_lock"` and `motion_authorization: false`. Motion
+  never depends on this lock: the operator's System-issued lease is forwarded
+  and validated by the system layer.
 
 - Opening a session is an explicit operator action with a written purpose and a
   robot identity. It is never a startup side effect, a CI step or a scheduled
@@ -136,6 +202,7 @@ system layer's incident, handled by `jcheng-ops` and the operator runbook.
 | v0.5.0 M2a sessions | lifecycle, authorization refusal, seal/export hash, tamper detection, redaction and restart-close tests; no hardware (L2) |
 | v0.6.0 M2b intent | mock `/v1/motion/validate` + `/execute`; operator-supplied lease; unauthorized, rejected, missing-lease and UNKNOWN paths; no `/v1/leases` call (L2) |
 | v0.7.0 M3 replay | offline session analysis; commanded/measured separate; delta only with a recorded joint order; hashed export with provenance (L2/L4) |
+| 2026-11-27 authority hardening | `backend/tests/test_legacy_motion_disabled.py`: the three legacy endpoints answer 410 by default and never call the adapter; intent is refused in mock mode and without the opt-in; the stop goes through the system proxy; `Settings.from_env` enforces the legacy double switch and the mock/v1 guard; static scan proves no default module names `/motion/dispatch`; local lease checks are absent from motion ops (L1/L2) |
 | M4 supervised hardware | separately authorized L5 session with system limits and stop latch active |
 
 No hardware claim is valid before M4. Synthetic, mock and replay results are

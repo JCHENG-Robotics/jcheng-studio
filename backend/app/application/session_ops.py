@@ -26,6 +26,7 @@ from ..adapters.gateway_v1_intent import (
 from ..domain.visual import load_visual_config
 from ..errors import ServiceError
 from ..sessions import SessionStore, SessionStoreError
+from ..system_intent import require_system_intent
 
 
 class SessionOperations:
@@ -343,6 +344,7 @@ class SessionOperations:
         duration_s: float,
         max_velocity_rad_s: float,
     ) -> dict[str, Any]:
+        require_system_intent(self.settings, "session intent (joint)")
         self._authorized_session(session_id)
         joint = joint.strip()
         if not joint or len(joint) > 64:
@@ -377,6 +379,7 @@ class SessionOperations:
         duration_s: float,
         max_velocity_rad_s: float,
     ) -> dict[str, Any]:
+        require_system_intent(self.settings, "session intent (gripper)")
         self._authorized_session(session_id)
         if not lease_id.strip() or len(lease_id) > 128:
             raise ServiceError("INTENT_INVALID", "lease_id must be 1..128 chars", status_code=400)
